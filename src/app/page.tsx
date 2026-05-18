@@ -23,10 +23,10 @@ const FEATURES = [
   {
     title: "Interview simulator",
     description:
-      "Behavioral mock interviews with STAR follow-ups and consulting-style pressure. Built for fit and leadership questions top firms ask.",
-    href: null,
-    cta: "Coming soon",
-    available: false,
+      "Full behavioral flow from intro to closing Q&A — resume deep-dives, randomized competency probes, and dimension-based scoring.",
+    href: "/interview",
+    cta: "Start interview",
+    available: true,
     icon: InterviewIcon,
   },
 ] as const;
@@ -34,24 +34,24 @@ const FEATURES = [
 const STEPS = [
   {
     step: 1,
-    title: "Upload your resume",
+    title: "Polish your resume",
     description:
-      "Get AI feedback on structure, impact, and consulting fit — tailored for English or Chinese resumes.",
+      "Get scored feedback on structure, impact, and consulting fit — tailored for English or Chinese resumes.",
     icon: StepUploadIcon,
   },
   {
     step: 2,
-    title: "Practice cases",
+    title: "Mock behavioral interview",
     description:
-      "Run through live case interviews, sharpen your framework, and request an evaluation when you are ready.",
-    icon: StepCaseIcon,
+      "Walk through a real partner-style flow: intro, experience deep-dives, and competency probes with a closing Q&A.",
+    icon: InterviewIcon,
   },
   {
     step: 3,
-    title: "Land the offer",
+    title: "Practice cases",
     description:
-      "Combine resume polish and case reps so you walk into interviews confident and prepared.",
-    icon: StepOfferIcon,
+      "Run live case interviews, sharpen your framework, and request an evaluation when you are ready.",
+    icon: StepCaseIcon,
   },
 ] as const;
 
@@ -66,24 +66,10 @@ export default function HomePage() {
         <h1 className="mb-6">
           <Logo size="lg" className="font-bold" />
         </h1>
-        <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-400">
+        <p className="mx-auto max-w-2xl text-lg leading-relaxed text-slate-400">
           Prepare for MBB and Big4 interviews with AI-powered case practice,
           behavioral mocks, and resume feedback — all in one place.
         </p>
-        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-          <Link
-            href="/case"
-            className="inline-flex w-full min-w-[200px] items-center justify-center rounded-lg bg-sky-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-sky-900/30 transition hover:bg-sky-500 sm:w-auto"
-          >
-            Start Case Practice
-          </Link>
-          <Link
-            href="/resume"
-            className="inline-flex w-full min-w-[200px] items-center justify-center rounded-lg border border-slate-600 bg-slate-800/80 px-6 py-3.5 text-sm font-semibold text-white transition hover:border-slate-500 hover:bg-slate-700/80 sm:w-auto"
-          >
-            Analyze My Resume
-          </Link>
-        </div>
       </section>
 
       {/* Feature cards */}

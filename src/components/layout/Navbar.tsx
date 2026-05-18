@@ -21,6 +21,9 @@ export default function Navbar() {
           <Link href="/resume" className={navLinkClass}>
             Resume
           </Link>
+          <Link href="/interview" className={navLinkClass}>
+            Interview
+          </Link>
         </div>
       </div>
     </nav>
