@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { listCaseQuestions } from "@/lib/db/cases";
+import { parseCaseLocale } from "@/types/case-locale";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const cases = await listCaseQuestions();
-    return NextResponse.json({ cases });
+    const locale = parseCaseLocale(req.nextUrl.searchParams.get("locale"));
+    const cases = await listCaseQuestions(locale);
+    return NextResponse.json({ cases, locale });
   } catch (err) {
     console.error("List cases error:", err);
-    return NextResponse.json({ error: "获取题库失败" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load cases" }, { status: 500 });
   }
 }

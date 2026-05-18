@@ -22,10 +22,14 @@ export function createSseStream(stream: AsyncIterable<unknown>): ReadableStream<
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
         console.error("Stream error:", err);
+        const message =
+          err instanceof Error
+            ? err.message.includes("not_found_error")
+              ? "AI model unavailable. Set CLAUDE_MODEL=claude-sonnet-4-6 in .env.local"
+              : err.message
+            : "Stream interrupted";
         controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ error: "流式输出中断" })}\n\n`
-          )
+          encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`)
         );
       } finally {
         controller.close();

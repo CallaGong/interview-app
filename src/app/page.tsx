@@ -5,39 +5,39 @@ export default function HomePage() {
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
       <section className="mb-16 text-center">
         <p className="mb-4 text-sm font-medium uppercase tracking-widest text-sky-400">
-          咨询求职 AI 助手
+          Consulting interview prep
         </p>
         <h1 className="mb-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">
           Case<span className="text-sky-400">Ready</span>
         </h1>
         <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-400">
-          面向 MBB 与 Big4 的求职准备：Case 拆解、行为面试模拟、简历优化——用 AI 陪你练到上场不慌。
+          Prepare for MBB and Big4 interviews with AI-powered case practice, behavioral mocks, and resume feedback.
         </p>
         <Link
           href="/case"
           className="inline-flex items-center rounded-lg bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/30 transition hover:bg-sky-500"
         >
-          开始 Case 练习
+          Start case practice
         </Link>
       </section>
 
       <section className="grid gap-6 sm:grid-cols-3">
         {[
           {
-            title: "Case 拆解练习",
-            desc: "AI 扮演面试官，一步步引导你拆解咨询 Case，实时评估框架与逻辑。",
+            title: "Case practice",
+            desc: "AI interviewer guides you through cases with live framework tracking.",
             href: "/case",
             active: true,
           },
           {
-            title: "面试模拟官",
-            desc: "行为面试模拟与 STAR 追问，结束后获得结构化反馈。（即将上线）",
+            title: "Interview simulator",
+            desc: "Behavioral interview practice with STAR follow-ups. (Coming soon)",
             href: "#",
             active: false,
           },
           {
-            title: "简历优化器",
-            desc: "上传 PDF 简历，获得针对咨询行业的修改建议。（即将上线）",
+            title: "Resume optimizer",
+            desc: "Upload your resume for consulting-specific feedback. (Coming soon)",
             href: "#",
             active: false,
           },
@@ -54,10 +54,10 @@ export default function HomePage() {
             <p className="mb-4 text-sm text-slate-400">{card.desc}</p>
             {card.active ? (
               <Link href={card.href} className="text-sm font-medium text-sky-400 hover:text-sky-300">
-                立即开始 →
+                Get started →
               </Link>
             ) : (
-              <span className="text-sm text-slate-500">Phase 2 上线</span>
+              <span className="text-sm text-slate-500">Phase 2</span>
             )}
           </div>
         ))}

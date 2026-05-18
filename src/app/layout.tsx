@@ -3,8 +3,8 @@ import Navbar from "@/components/layout/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CaseReady — 咨询求职 AI 助手",
-  description: "MBB 与 Big4 咨询求职准备：Case 练习、面试模拟、简历优化",
+  title: "CaseReady — Consulting interview prep",
+  description: "MBB & Big4 prep: case practice, mock interviews, resume feedback",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body className="min-h-screen antialiased">
         <div className="relative min-h-screen bg-slate-950">
           <div

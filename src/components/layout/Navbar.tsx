@@ -12,7 +12,7 @@ export default function Navbar() {
             href="/case"
             className="text-slate-300 transition hover:text-white"
           >
-            Case 练习
+            Case practice
           </Link>
         </div>
       </div>

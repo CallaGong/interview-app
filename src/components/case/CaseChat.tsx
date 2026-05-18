@@ -3,12 +3,17 @@
 import { useCallback, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiUrl } from "@/lib/api";
-import { buildCaseOpeningMessage } from "@/lib/prompts/case";
+import {
+  buildCaseOpeningMessage,
+  isEndEvaluationMessage,
+} from "@/lib/prompts/case";
+import type { CaseLocale } from "@/types/case-locale";
 import type { CaseEvaluation, CaseQuestion, ChatMessage } from "@/types";
 import CaseEvaluationReport from "./CaseEvaluation";
 
 interface CaseChatProps {
   caseQuestion: CaseQuestion;
+  locale: CaseLocale;
   onReset: () => void;
 }
 
@@ -31,14 +36,14 @@ function extractFrameworkTopics(messages: ChatMessage[], keyIssues: string[]): s
 
   return keyIssues.filter((issue) => {
     if (userText.includes(issue)) return true;
-    const parts = issue.split(/[（(]/)[0].split(/[/、]/);
+    const parts = issue.split(/[（(]/)[0].split(/[/、,/]/);
     return parts.some((part) => part.trim().length > 2 && userText.includes(part.trim()));
   });
 }
 
-export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
+export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: buildCaseOpeningMessage(caseQuestion) },
+    { role: "assistant", content: buildCaseOpeningMessage(caseQuestion, locale) },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +53,11 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const coveredTopics = extractFrameworkTopics(messages, caseQuestion.key_issues);
+
+  const inputPlaceholder =
+    locale === "zh"
+      ? "输入你的回答…（输入「结束评估」获取评分）"
+      : 'Type your answer… (type "end evaluation" for feedback)';
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -68,16 +78,16 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
       const response = await fetch(apiUrl("/api/case/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages, caseQuestion }),
+        body: JSON.stringify({ messages: updatedMessages, caseQuestion, locale }),
       });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || "请求失败");
+        throw new Error(err.error || "Request failed");
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("无法读取响应流");
+      if (!reader) throw new Error("Could not read response stream");
 
       const decoder = new TextDecoder();
       let fullContent = "";
@@ -90,26 +100,40 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
         for (const line of chunk.split("\n")) {
           if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
           try {
-            const payload = JSON.parse(line.slice(6));
+            const payload = JSON.parse(line.slice(6)) as {
+              text?: string;
+              error?: string;
+            };
+            if (payload.error) {
+              throw new Error(payload.error);
+            }
             if (payload.text) {
               fullContent += payload.text;
               setStreamingContent(fullContent);
             }
-          } catch {
-            // skip malformed SSE lines
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== "Unexpected end of JSON input") {
+              throw parseErr;
+            }
           }
         }
+      }
+
+      if (!fullContent.trim()) {
+        throw new Error(
+          "No response from AI. Check ANTHROPIC_API_KEY and CLAUDE_MODEL in .env.local"
+        );
       }
 
       setMessages([...updatedMessages, { role: "assistant", content: fullContent }]);
       setStreamingContent("");
 
-      if (content.includes("结束评估")) {
+      if (isEndEvaluationMessage(content)) {
         const parsed = tryParseEvaluation(fullContent);
         if (parsed) setEvaluation(parsed);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "发送失败，请重试");
+      setError(e instanceof Error ? e.message : "Failed to send. Please try again.");
     } finally {
       setIsLoading(false);
       setTimeout(scrollToBottom, 100);
@@ -126,7 +150,7 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
       <aside className="shrink-0 lg:w-56">
         <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4">
           <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            框架追踪
+            Framework tracker
           </h4>
           <ul className="space-y-2">
             {caseQuestion.key_issues.map((issue) => {
@@ -156,7 +180,7 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
             onClick={onReset}
             className="text-xs text-slate-400 hover:text-white"
           >
-            换题
+            Back to cases
           </button>
         </div>
 
@@ -201,17 +225,23 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
 
         {evaluation && (
           <div className="border-t border-slate-800 p-4">
-            <CaseEvaluationReport evaluation={evaluation} />
+            <CaseEvaluationReport evaluation={evaluation} locale={locale} />
           </div>
         )}
 
-        <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex gap-2 border-t border-slate-800 p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage(input);
+          }}
+          className="flex gap-2 border-t border-slate-800 p-4"
+        >
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
-            placeholder="输入你的回答…（输入「结束评估」获取评分）"
+            placeholder={inputPlaceholder}
             className="flex-1 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
           />
           <button
@@ -219,7 +249,7 @@ export default function CaseChat({ caseQuestion, onReset }: CaseChatProps) {
             disabled={isLoading || !input.trim()}
             className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            发送
+            Send
           </button>
         </form>
       </div>

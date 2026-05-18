@@ -1,8 +1,15 @@
 "use client";
 
+import type { CaseLocale } from "@/types/case-locale";
 import type { CaseQuestion } from "@/types";
 
-const difficultyLabel: Record<CaseQuestion["difficulty"], string> = {
+const difficultyLabelEn: Record<CaseQuestion["difficulty"], string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+const difficultyLabelZh: Record<CaseQuestion["difficulty"], string> = {
   easy: "简单",
   medium: "中等",
   hard: "困难",
@@ -19,6 +26,7 @@ interface CaseSelectorProps {
   selected: CaseQuestion | null;
   onSelect: (c: CaseQuestion) => void;
   disabled?: boolean;
+  locale?: CaseLocale;
 }
 
 export default function CaseSelector({
@@ -26,7 +34,10 @@ export default function CaseSelector({
   selected,
   onSelect,
   disabled,
+  locale = "en",
 }: CaseSelectorProps) {
+  const difficultyLabel = locale === "zh" ? difficultyLabelZh : difficultyLabelEn;
+
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {cases.map((c) => {
