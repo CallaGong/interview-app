@@ -48,50 +48,56 @@ export default function CaseEvaluation({
         };
 
   return (
-    <div className="rounded-xl border border-slate-700/80 bg-slate-900/80 p-6">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/80 p-4 sm:p-6">
       <h3 className="mb-4 text-lg font-semibold text-white">{t.title}</h3>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {(Object.keys(scores) as (keyof typeof scores)[]).map((key) => (
-          <div key={key} className="rounded-lg bg-slate-800/80 p-3 text-center">
+          <div key={key} className="min-w-0 rounded-lg bg-slate-800/80 p-3 text-center">
             <div className="text-2xl font-bold text-sky-400">{scores[key]}</div>
-            <div className="mt-1 text-xs text-slate-400">{scoreLabels[key]}</div>
+            <div className="mt-1 break-words text-xs text-slate-400">{scoreLabels[key]}</div>
           </div>
         ))}
       </div>
 
-      <p className="mb-4 text-sm leading-relaxed text-slate-300">{evaluation.feedback}</p>
+      <p className="mb-4 [overflow-wrap:anywhere] break-words text-sm leading-relaxed text-slate-300">
+        {evaluation.feedback}
+      </p>
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
-          <p className="mb-1 text-xs font-medium uppercase text-emerald-400">{t.strength}</p>
-          <p className="text-sm text-slate-200">{evaluation.top_strength}</p>
+      <div className="mb-4 grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="min-w-0 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <p className="mb-1 text-xs font-medium text-emerald-400">{t.strength}</p>
+          <p className="[overflow-wrap:anywhere] break-words text-sm text-slate-200">
+            {evaluation.top_strength}
+          </p>
         </div>
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-          <p className="mb-1 text-xs font-medium uppercase text-amber-400">{t.improvement}</p>
-          <p className="text-sm text-slate-200">{evaluation.top_improvement}</p>
+        <div className="min-w-0 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="mb-1 text-xs font-medium text-amber-400">{t.improvement}</p>
+          <p className="[overflow-wrap:anywhere] break-words text-sm text-slate-200">
+            {evaluation.top_improvement}
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase text-slate-500">{t.covered}</p>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-medium text-slate-500">{t.covered}</p>
           <ul className="space-y-1">
             {evaluation.covered_issues.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className="text-emerald-400">✓</span>
-                {item}
+              <li key={i} className="flex min-w-0 items-start gap-2 text-sm text-slate-300">
+                <span className="shrink-0 text-emerald-400">✓</span>
+                <span className="min-w-0 [overflow-wrap:anywhere] break-words">{item}</span>
               </li>
             ))}
           </ul>
         </div>
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase text-slate-500">{t.missed}</p>
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-medium text-slate-500">{t.missed}</p>
           <ul className="space-y-1">
             {evaluation.missed_issues.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className="text-rose-400">○</span>
-                {item}
+              <li key={i} className="flex min-w-0 items-start gap-2 text-sm text-slate-300">
+                <span className="shrink-0 text-rose-400">○</span>
+                <span className="min-w-0 [overflow-wrap:anywhere] break-words">{item}</span>
               </li>
             ))}
           </ul>

@@ -145,9 +145,14 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
     displayMessages.push({ role: "assistant", content: streamingContent });
   }
 
+  const evalPlaceholder =
+    locale === "zh"
+      ? "评估报告已生成，请查看下方。"
+      : "Evaluation report is ready — see below.";
+
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <aside className="shrink-0 lg:w-56">
+    <div className="flex w-full min-w-0 flex-col gap-4 lg:flex-row">
+      <aside className="min-w-0 shrink-0 lg:w-56">
         <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 p-4">
           <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Framework tracker
@@ -158,7 +163,7 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
               return (
                 <li
                   key={issue}
-                  className={`rounded-md px-2 py-1.5 text-xs transition ${
+                  className={`break-words rounded-md px-2 py-1.5 text-xs transition ${
                     covered
                       ? "bg-sky-500/15 text-sky-200 ring-1 ring-sky-500/30"
                       : "text-slate-500"
@@ -172,9 +177,11 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
         </div>
       </aside>
 
-      <div className="flex min-h-[480px] flex-1 flex-col rounded-xl border border-slate-700/80 bg-slate-900/40">
+      <div className="flex min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/40">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <h3 className="text-sm font-medium text-white">{caseQuestion.title}</h3>
+          <h3 className="min-w-0 flex-1 truncate pr-2 text-sm font-medium text-white">
+            {caseQuestion.title}
+          </h3>
           <button
             type="button"
             onClick={onReset}
@@ -184,29 +191,42 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: "52vh" }}>
-          {displayMessages.map((msg, i) => (
+        <div
+          className="min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4"
+          style={{ maxHeight: "52vh" }}
+        >
+          {displayMessages.map((msg, i) => {
+            const hideEvalJson =
+              evaluation &&
+              msg.role === "assistant" &&
+              i === displayMessages.length - 1 &&
+              tryParseEvaluation(msg.content) !== null;
+
+            return (
             <div
               key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex min-w-0 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`min-w-0 max-w-[85%] overflow-hidden break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === "user"
                     ? "bg-slate-700 text-white"
                     : "bg-slate-800/90 text-slate-100"
                 }`}
               >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-invert prose-sm max-w-none [&_p]:my-1 [&_strong]:text-white">
+                {hideEvalJson ? (
+                  <p className="text-slate-400 italic">{evalPlaceholder}</p>
+                ) : msg.role === "assistant" ? (
+                  <div className="prose prose-invert prose-sm max-w-none break-words [&_*]:max-w-full [&_code]:break-all [&_p]:my-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_strong]:text-white">
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
           {isLoading && !streamingContent && (
             <div className="flex justify-start">
               <div className="rounded-2xl bg-slate-800/90 px-4 py-3">
@@ -224,7 +244,7 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
         {error && <p className="px-4 text-sm text-rose-400">{error}</p>}
 
         {evaluation && (
-          <div className="border-t border-slate-800 p-4">
+          <div className="min-w-0 shrink-0 overflow-x-hidden border-t border-slate-800 p-4">
             <CaseEvaluationReport evaluation={evaluation} locale={locale} />
           </div>
         )}
