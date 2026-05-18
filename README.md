@@ -1,55 +1,127 @@
 # CaseReady
 
-咨询求职 AI 助手 — Phase 1：Case 拆解练习
+> **AI-powered consulting interview prep platform for students targeting MBB and Big4.**
 
-## 技术栈
+🌐 **Live:** [interview-app-4tpm.vercel.app](https://interview-app-4tpm.vercel.app)
 
-- **前端 / API**：Next.js 15（Vercel 部署）
-- **数据库 / 存储**：Supabase（PostgreSQL + Storage）
-- **AI**：Anthropic Claude API
-- **认证**：Clerk（Phase 2）
+---
 
-## 快速开始
+## ✨ What is CaseReady?
 
-1. 安装依赖：
+CaseReady helps consulting candidates practice the full interview loop in one place — **cases**, **resumes**, and **behavioral interviews** — with AI that feels close to a real MBB / Big4 conversation. Upload your materials, get structured feedback, and improve with every session.
+
+---
+
+## 🧩 Features
+
+### 📊 Case Practice
+
+An AI interviewer walks you through **real consulting cases**, step by step. Your **framework and hypothesis** are tracked in real time as you work. When you finish, you receive a **full evaluation report** with scores and actionable feedback.
+
+### 📄 Resume Optimizer
+
+Upload a **Chinese or English resume PDF** and get analysis tailored to the standard you care about:
+
+- **MBB** (McKinsey · BCG · Bain) for English resumes  
+- **Top domestic consulting firms** for Chinese resumes  
+
+You get **dimension-level scores**, insights, and **line-by-line rewrite suggestions**.
+
+### 🎤 Interview Simulator
+
+A **complete behavioral interview** from opening intro through closing Q&A:
+
+- Optional **resume upload** so the AI asks about **your specific experiences**  
+- **10 core consulting competency dimensions** (leadership, problem solving, teamwork, and more)  
+- Natural **STAR-style follow-ups** and a **dimension-based scorecard** at the end  
+- **English & Chinese** interview modes, plus **voice input** in the browser  
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|--------|------------|
+| **Frontend** | Next.js 15, TypeScript, Tailwind CSS |
+| **AI** | Anthropic Claude API (`claude-sonnet-4-20250514`, streaming via SSE) |
+| **Database** | Supabase (PostgreSQL) |
+| **Auth** | Clerk |
+| **Deploy** | Vercel |
+
+---
+
+## 🚀 Local Development
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/CallaGong/interview-app.git
+cd interview-app
+```
+
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. 复制环境变量并填写：
+### 3. Configure environment variables
+
+Copy the example file and fill in your keys (do **not** commit real secrets):
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-3. 在 [Supabase](https://supabase.com) 创建项目，在 SQL Editor 中依次运行 `supabase/migrations/` 下的迁移文件，并创建 Storage bucket `resumes`（私有）。
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | Anthropic API key (required for AI features) |
+| `CLAUDE_MODEL` | Claude model ID (optional; defaults in app config) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Clerk secret key |
+| `NEXT_PUBLIC_API_URL` | API base URL override (optional; leave empty for local) |
 
-4. 启动开发服务器：
+For Case Practice with the question bank, run Supabase migrations under `supabase/migrations/` and create a private Storage bucket `resumes` if you use file storage features.
+
+### 4. Start the dev server
 
 ```bash
 npm run dev
 ```
 
-5. 打开 [http://localhost:3000](http://localhost:3000)，点击「开始 Case 练习」。
+Open [http://localhost:3000](http://localhost:3000).
 
-## 环境变量
+If you hit stale build errors after switching branches, try:
 
-| 变量 | 说明 |
-|------|------|
-| `ANTHROPIC_API_KEY` | [Anthropic Console](https://console.anthropic.com) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key（仅服务端） |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk 公钥（可选） |
-| `CLERK_SECRET_KEY` | Clerk 密钥（可选） |
+```bash
+npm run dev:clean
+```
 
-## 部署（Vercel）
+---
 
-1. 将仓库导入 Vercel
-2. 在 Vercel 项目设置中配置上述环境变量
-3. 推送代码后自动部署
+## 🎨 Design Philosophy
 
-## 功能
+- **Dark, professional UI** — calm and focused, like serious prep tools should feel  
+- **Three-layer information hierarchy** — **Verdict → Diagnosis → Action** so you always know what matters first  
+- **Streaming responses** — typewriter-style output that mirrors a live interview dialogue  
 
-- **Case 练习** (`/case`)：从 Supabase 加载题库，流式 AI 对话，框架追踪，输入「结束评估」获取 JSON 评分报告。
+---
+
+## 📁 Project Structure (high level)
+
+```
+src/
+├── app/              # Next.js App Router pages & API routes
+├── components/       # UI (case, resume, interview)
+├── lib/              # Prompts, Supabase, Anthropic, utilities
+└── types/            # Shared TypeScript types
+```
+
+---
+
+## 📜 License
+
+Private project — all rights reserved unless otherwise noted.
