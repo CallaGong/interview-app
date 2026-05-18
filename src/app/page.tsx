@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/layout/Logo";
 
 export default function HomePage() {
   return (
@@ -7,8 +8,8 @@ export default function HomePage() {
         <p className="mb-4 text-sm font-medium uppercase tracking-widest text-sky-400">
           Consulting interview prep
         </p>
-        <h1 className="mb-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Case<span className="text-sky-400">Ready</span>
+        <h1 className="mb-6">
+          <Logo size="lg" className="font-bold" />
         </h1>
         <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-400">
           Prepare for MBB and Big4 interviews with AI-powered case practice, behavioral mocks, and resume feedback.
@@ -37,9 +38,9 @@ export default function HomePage() {
           },
           {
             title: "Resume optimizer",
-            desc: "Upload your resume for consulting-specific feedback. (Coming soon)",
-            href: "#",
-            active: false,
+            desc: "Upload your resume for MBB or China consulting feedback.",
+            href: "/resume",
+            active: true,
           },
         ].map((card) => (
           <div

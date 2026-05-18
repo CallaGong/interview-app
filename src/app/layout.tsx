@@ -21,7 +21,7 @@ export default function RootLayout({
             aria-hidden
           />
           <Navbar />
-          <main className="relative min-w-0 overflow-x-hidden">{children}</main>
+          <main className="relative z-10 min-w-0 overflow-x-hidden">{children}</main>
         </div>
       </body>
     </html>

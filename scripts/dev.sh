@@ -11,6 +11,12 @@ fi
 # Validate package.json (iCloud sometimes corrupts it)
 node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
 
+# Stale .next from `npm run build` while dev runs causes 500 / MODULE_NOT_FOUND
+if [[ -f .next/BUILD_ID ]]; then
+  rm -rf .next
+fi
+rm -rf .next/cache 2>/dev/null || true
+
 export NEXT_TELEMETRY_DISABLED=1
 # Desktop / cloud-synced folders: use polling so file watcher does not hang
 export WATCHPACK_POLLING=true
