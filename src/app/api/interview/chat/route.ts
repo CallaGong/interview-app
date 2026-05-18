@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic, CLAUDE_MODEL } from "@/lib/anthropic";
-import { buildCaseSystemPrompt } from "@/lib/prompts/case";
 import { createSseStream, sseHeaders } from "@/lib/sse";
-import type { CaseQuestion, ChatMessage } from "@/types";
+import type { ChatMessage } from "@/types";
+
+const INTERVIEW_SYSTEM_PROMPT = `你是麦肯锡中国区资深招聘合伙人，进行行为面试。每次只问一个问题。用户说"结束"时返回 JSON 评分。`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,18 +16,15 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const messages = body.messages as ChatMessage[];
-    const caseQuestion = body.caseQuestion as CaseQuestion;
 
-    if (!messages?.length || !caseQuestion) {
-      return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
+    if (!messages?.length) {
+      return NextResponse.json({ error: "缺少消息记录" }, { status: 400 });
     }
-
-    const systemPrompt = buildCaseSystemPrompt(caseQuestion);
 
     const stream = await anthropic.messages.stream({
       model: CLAUDE_MODEL,
-      max_tokens: 1200,
-      system: systemPrompt,
+      max_tokens: 1000,
+      system: INTERVIEW_SYSTEM_PROMPT,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -35,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     return new Response(createSseStream(stream), { headers: sseHeaders });
   } catch (error) {
-    console.error("Case chat error:", error);
+    console.error("Interview chat error:", error);
     return NextResponse.json({ error: "对话失败，请重试" }, { status: 500 });
   }
 }

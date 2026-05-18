@@ -32,7 +32,7 @@ export default function CasePage() {
   }, []);
 
   return (
-    <motion className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Case 拆解练习</h1>
         <p className="mt-2 text-sm text-slate-400">
@@ -54,7 +54,7 @@ export default function CasePage() {
           )}
           {!loadingCases && !casesError && cases.length === 0 && (
             <p className="text-sm text-slate-500">
-              题库为空，请运行 <code className="text-sky-400">npm run db:migrate:local</code>
+              题库为空，请在 Supabase 中运行 <code className="text-sky-400">supabase/migrations</code> 下的 SQL 迁移。
             </p>
           )}
         </section>
@@ -65,6 +65,6 @@ export default function CasePage() {
           onReset={() => { setSelectedCase(null); setSessionKey((k) => k + 1); }}
         />
       )}
-    </motion>
+    </div>
   );
 }

@@ -3,32 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n next,worker -c blue,green \"npm run dev:next\" \"npm run dev:worker\"",
-    "dev:next": "next dev",
-    "dev:worker": "npx wrangler@3.114.0 dev",
+    "dev": "next dev",
     "build": "next build",
-    "deploy": "npm run build && wrangler deploy",
-    "db:migrate:local": "npx wrangler@3.114.0 d1 migrations apply caseready-db --local"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@supabase/supabase-js": "^2.49.8",
     "next": "15.3.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250320.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "wrangler": "^3.114.0"
+    "typescript": "^5"
   }
 }

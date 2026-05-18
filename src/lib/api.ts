@@ -1,6 +1,6 @@
 /**
- * API 基址：生产环境 Worker 与静态资源同域，留空即可。
- * 本地开发：Next.js 通过 rewrites 代理到 wrangler dev (8787)。
+ * API base URL for Vercel deployment (same origin by default).
+ * Set NEXT_PUBLIC_API_URL only if the API is hosted on a different domain.
  */
 export function getApiBase(): string {
   const url = process.env.NEXT_PUBLIC_API_URL ?? "";
