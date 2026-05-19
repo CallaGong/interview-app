@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { isClerkConfigured } from "@/lib/clerk-config";
 
 export const dynamic = "force-dynamic";
 import Logo from "@/components/layout/Logo";
@@ -64,7 +65,7 @@ function featureHref(userId: string | null | undefined, path: string): string {
 }
 
 export default async function HomePage() {
-  const { userId } = await auth();
+  const userId = isClerkConfigured() ? (await auth()).userId : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">

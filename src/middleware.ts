@@ -18,31 +18,45 @@ const isProtectedRoute = createRouteMatcher([
   "/api/interview(.*)",
 ]);
 
-const runClerk = clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return;
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+type ClerkMiddlewareFn = ReturnType<typeof clerkMiddleware>;
+
+/** Lazy init — clerkMiddleware() throws if env vars are missing at module load. */
+let clerkHandler: ClerkMiddlewareFn | null = null;
+
+function getClerkHandler(): ClerkMiddlewareFn {
+  if (!clerkHandler) {
+    clerkHandler = clerkMiddleware(async (auth, req) => {
+      if (isPublicRoute(req)) return;
+      if (isProtectedRoute(req)) {
+        await auth.protect();
+      }
+    });
   }
-});
+  return clerkHandler;
+}
+
+function unconfiguredResponse(req: NextRequest): NextResponse {
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      {
+        error:
+          "Authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY in Vercel, then redeploy.",
+      },
+      { status: 503 }
+    );
+  }
+  return NextResponse.redirect(new URL("/", req.url));
+}
 
 export default function middleware(req: NextRequest, event: NextFetchEvent) {
   if (!isClerkConfigured()) {
     if (isProtectedRoute(req)) {
-      if (req.nextUrl.pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          {
-            error:
-              "Authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY in your deployment environment.",
-          },
-          { status: 503 }
-        );
-      }
-      return NextResponse.redirect(new URL("/", req.url));
+      return unconfiguredResponse(req);
     }
     return NextResponse.next();
   }
 
-  return runClerk(req, event);
+  return getClerkHandler()(req, event);
 }
 
 export const config = {

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { getClerkPublishableKey } from "@/lib/clerk-config";
 import UserAccountMenu from "./UserAccountMenu";
 
 const signInClass =
@@ -23,7 +24,7 @@ function SignInUpLinks() {
   );
 }
 
-export default function AuthNav() {
+function AuthNavWithClerk() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded || !isSignedIn) {
@@ -31,4 +32,12 @@ export default function AuthNav() {
   }
 
   return <UserAccountMenu />;
+}
+
+export default function AuthNav() {
+  if (!getClerkPublishableKey()) {
+    return null;
+  }
+
+  return <AuthNavWithClerk />;
 }
