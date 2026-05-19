@@ -82,8 +82,14 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server only) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
-| `CLERK_SECRET_KEY` | Clerk secret key |
+| `CLERK_SECRET_KEY` | Clerk secret key (server only — **required on Vercel**) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `/sign-in` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | `/sign-up` |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | `/` |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | `/` |
 | `NEXT_PUBLIC_API_URL` | API base URL override (optional) |
+
+> **Vercel deploy:** Add the same variables under **Project → Settings → Environment Variables** for **Production** (and Preview if you use it), then **Redeploy**. Missing `CLERK_SECRET_KEY` causes `MIDDLEWARE_INVOCATION_FAILED` on every page.
 
 > **Note:** For the case question bank, apply migrations in `supabase/migrations/` and create a private `resumes` Storage bucket if needed.
 

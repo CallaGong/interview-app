@@ -1,4 +1,8 @@
-import type { Appearance } from "@clerk/types";
+import type { ClerkProvider } from "@clerk/nextjs";
+import type { ComponentProps } from "react";
+
+type Appearance = NonNullable<ComponentProps<typeof ClerkProvider>["appearance"]>;
+
 
 /** Dark theme aligned with CaseReady (slate-950 / sky accents). */
 export const clerkAppearance: Appearance = {
