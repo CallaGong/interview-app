@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import Navbar from "@/components/layout/Navbar";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,14 +17,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <div className="relative min-h-screen bg-slate-950">
-          <div
-            className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-900/20 via-slate-950 to-slate-950"
-            aria-hidden
-          />
-          <Navbar />
-          <main className="relative z-10 min-w-0 overflow-x-hidden">{children}</main>
-        </div>
+        <ClerkProvider appearance={clerkAppearance}>
+          <div className="relative min-h-screen bg-slate-950">
+            <div
+              className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-900/20 via-slate-950 to-slate-950"
+              aria-hidden
+            />
+            <Navbar />
+            <main className="relative z-10 min-w-0 overflow-x-hidden">
+              {children}
+            </main>
+          </div>
+        </ClerkProvider>
       </body>
     </html>
   );

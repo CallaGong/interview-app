@@ -1,8 +1,15 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { useCallback, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiUrl } from "@/lib/api";
+import { computeOverallScore } from "@/lib/case/recommendations";
+import {
+  appendLocalPracticeHistory,
+  isStorageUnavailableError,
+} from "@/lib/case/local-preferences";
+import { tryParseCaseEvaluation } from "@/lib/case/parse-evaluation";
 import {
   buildCaseOpeningMessage,
   isEndEvaluationMessage,
@@ -15,17 +22,7 @@ interface CaseChatProps {
   caseQuestion: CaseQuestion;
   locale: CaseLocale;
   onReset: () => void;
-}
-
-function tryParseEvaluation(content: string): CaseEvaluation | null {
-  const jsonMatch = content.match(/\{[\s\S]*"scores"[\s\S]*\}/);
-  if (!jsonMatch) return null;
-  try {
-    const clean = jsonMatch[0].replace(/```json\n?|\n?```/g, "").trim();
-    return JSON.parse(clean) as CaseEvaluation;
-  } catch {
-    return null;
-  }
+  onEvaluationSaved?: () => void;
 }
 
 function extractFrameworkTopics(messages: ChatMessage[], keyIssues: string[]): string[] {
@@ -41,7 +38,13 @@ function extractFrameworkTopics(messages: ChatMessage[], keyIssues: string[]): s
   });
 }
 
-export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProps) {
+export default function CaseChat({
+  caseQuestion,
+  locale,
+  onReset,
+  onEvaluationSaved,
+}: CaseChatProps) {
+  const { user } = useUser();
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: buildCaseOpeningMessage(caseQuestion, locale) },
   ]);
@@ -62,6 +65,53 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const saveEvaluationHistory = async (parsed: CaseEvaluation) => {
+    const overallScore = computeOverallScore(parsed.scores);
+    try {
+      const res = await fetch(apiUrl("/api/case/history"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: caseQuestion.id,
+          difficulty: caseQuestion.difficulty,
+          scores: parsed.scores,
+        }),
+      });
+      if (res.ok) {
+        onEvaluationSaved?.();
+        return;
+      }
+      const err = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+      };
+      if (
+        user?.id &&
+        (err.code === "MISSING_TABLE" || isStorageUnavailableError(err.error))
+      ) {
+        appendLocalPracticeHistory(user.id, {
+          case_id: caseQuestion.id,
+          difficulty: caseQuestion.difficulty,
+          overall_score: overallScore,
+          completed_at: new Date().toISOString(),
+          scores: parsed.scores,
+        });
+        onEvaluationSaved?.();
+      }
+    } catch {
+      if (user?.id) {
+        appendLocalPracticeHistory(user.id, {
+          case_id: caseQuestion.id,
+          difficulty: caseQuestion.difficulty,
+          overall_score: overallScore,
+          completed_at: new Date().toISOString(),
+          scores: parsed.scores,
+        });
+        onEvaluationSaved?.();
+      }
+    }
+  };
 
   const sendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -129,8 +179,11 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
       setStreamingContent("");
 
       if (isEndEvaluationMessage(content)) {
-        const parsed = tryParseEvaluation(fullContent);
-        if (parsed) setEvaluation(parsed);
+        const parsed = tryParseCaseEvaluation(fullContent);
+        if (parsed) {
+          setEvaluation(parsed);
+          void saveEvaluationHistory(parsed);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send. Please try again.");
@@ -199,8 +252,7 @@ export default function CaseChat({ caseQuestion, locale, onReset }: CaseChatProp
             const hideEvalJson =
               evaluation &&
               msg.role === "assistant" &&
-              i === displayMessages.length - 1 &&
-              tryParseEvaluation(msg.content) !== null;
+              i === displayMessages.length - 1;
 
             return (
             <div

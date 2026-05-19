@@ -1,4 +1,7 @@
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 import Logo from "@/components/layout/Logo";
 
 const FEATURES = [
@@ -55,7 +58,14 @@ const STEPS = [
   },
 ] as const;
 
-export default function HomePage() {
+function featureHref(userId: string | null | undefined, path: string): string {
+  if (userId) return path;
+  return `/sign-in?redirect_url=${encodeURIComponent(path)}`;
+}
+
+export default async function HomePage() {
+  const { userId } = await auth();
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
       {/* Hero */}
@@ -123,7 +133,7 @@ export default function HomePage() {
                 </p>
                 {isAvailable && feature.href ? (
                   <Link
-                    href={feature.href}
+                    href={featureHref(userId, feature.href)}
                     className="inline-flex items-center justify-center rounded-lg bg-sky-600/90 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-500"
                   >
                     {feature.cta}

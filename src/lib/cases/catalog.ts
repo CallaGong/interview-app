@@ -20,7 +20,7 @@ const CATALOG: BilingualCaseEntry[] = [
   {
     id: "retail-profit",
     type: "profitability",
-    difficulty: "medium",
+    difficulty: "easy",
     en: {
       title: "Retail chain profit decline",
       description:
@@ -47,6 +47,39 @@ const CATALOG: BilingualCaseEntry[] = [
         "同店销售 vs 新店",
         "品类结构变化",
         "竞争格局",
+      ],
+    },
+  },
+  {
+    id: "logistics-cost",
+    type: "cost_optimization",
+    difficulty: "easy",
+    en: {
+      title: "Logistics cost optimization",
+      description:
+        "A regional logistics company's operating margin fell from 12% to 6% over three years. Find cost drivers and recommend optimizations.",
+      context:
+        "The client runs 40 distribution centers serving B2B retailers. Fuel, labor, and fleet lease are the largest cost buckets.",
+      key_issues: [
+        "Cost waterfall",
+        "Fixed vs variable costs",
+        "Route and fleet utilization",
+        "Warehouse productivity",
+        "Quick wins vs structural fixes",
+      ],
+    },
+    zh: {
+      title: "物流成本优化",
+      description:
+        "一家区域物流公司三年间营业利润率从 12% 降至 6%。请找出成本驱动因素并提出优化建议。",
+      context:
+        "客户运营 40 个配送中心，服务 B2B 零售商。燃油、人工和车队租赁是最大成本项。",
+      key_issues: [
+        "成本瀑布分析",
+        "固定成本 vs 可变成本",
+        "线路与车队利用率",
+        "仓储效率",
+        "短期举措 vs 结构性改善",
       ],
     },
   },
@@ -84,6 +117,39 @@ const CATALOG: BilingualCaseEntry[] = [
     },
   },
   {
+    id: "streaming-growth",
+    type: "growth_strategy",
+    difficulty: "medium",
+    en: {
+      title: "Streaming platform growth strategy",
+      description:
+        "A mid-size streaming service has plateaued at 8M subscribers. Recommend a growth strategy to reach 15M in 24 months.",
+      context:
+        "Competes with two global giants; strong catalog in documentaries and regional content; ARPU $9/month.",
+      key_issues: [
+        "Growth drivers (acquisition, retention, ARPU)",
+        "Customer segmentation",
+        "Content investment tradeoffs",
+        "Partnership and distribution",
+        "Prioritized roadmap",
+      ],
+    },
+    zh: {
+      title: "流媒体平台增长策略",
+      description:
+        "一家中型流媒体平台订阅用户停留在 800 万。请制定 24 个月内增至 1500 万的增长策略。",
+      context:
+        "与两家全球巨头竞争；纪录片与本土内容库较强；ARPU 约 9 美元/月。",
+      key_issues: [
+        "增长驱动（获客、留存、ARPU）",
+        "用户细分",
+        "内容投资权衡",
+        "合作与分发渠道",
+        "优先级路线图",
+      ],
+    },
+  },
+  {
     id: "pharma-ma",
     type: "mergers_acquisitions",
     difficulty: "hard",
@@ -113,6 +179,39 @@ const CATALOG: BilingualCaseEntry[] = [
         "估值合理性",
         "整合风险",
         "替代方案对比",
+      ],
+    },
+  },
+  {
+    id: "ev-market",
+    type: "market_analysis",
+    difficulty: "hard",
+    en: {
+      title: "EV market complex analysis",
+      description:
+        "An auto OEM must allocate $2B across EV platforms for three regions with different regulation, subsidies, and competition.",
+      context:
+        "Europe mandates tighten in 2027; China has price wars; North America IRA credits shift quarterly.",
+      key_issues: [
+        "Market sizing by region",
+        "Regulatory and subsidy scenarios",
+        "Competitive dynamics",
+        "Capability gaps",
+        "Portfolio recommendation",
+      ],
+    },
+    zh: {
+      title: "电动车市场复杂分析",
+      description:
+        "一家车企需在三大区域分配 20 亿美元电动车平台预算，各区域监管、补贴与竞争格局差异显著。",
+      context:
+        "欧洲 2027 年起法规趋严；中国价格战激烈；北美 IRA 补贴按季度调整。",
+      key_issues: [
+        "分区域市场规模",
+        "监管与补贴情景",
+        "竞争格局",
+        "能力缺口",
+        "投资组合建议",
       ],
     },
   },
