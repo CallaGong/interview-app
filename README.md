@@ -2,7 +2,7 @@
 
 **AI-powered consulting interview prep platform for students targeting MBB and Big4.**
 
-🌐 **Live app:** [https://interview-app-4tpm.vercel.app](https://interview-app-4tpm.vercel.app)
+🌐 **Live app:** [https://casereadyi.com](https://casereadyi.com)
 
 ---
 
