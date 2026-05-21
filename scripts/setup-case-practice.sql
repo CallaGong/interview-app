@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   recommended_difficulty TEXT CHECK (recommended_difficulty IN ('easy', 'medium', 'hard')),
   diagnosis_completed BOOLEAN NOT NULL DEFAULT FALSE,
   diagnosis_result JSONB,
+  learning_progress JSONB DEFAULT '{"section1":{"currentStep":1,"completedSteps":[],"sectionCompleted":false}}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

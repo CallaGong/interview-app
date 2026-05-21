@@ -257,7 +257,13 @@ export default function CasePage() {
       )}
 
       {pageTab === "learn" && !selectedCase ? (
-        <CaseLearnTab locale={locale} />
+        <CaseLearnTab
+          locale={locale}
+          onStartPractice={() => {
+            setPageTab("practice");
+            setDifficultyFilter("easy");
+          }}
+        />
       ) : showDiagnosis ? (
         <CaseDiagnosis locale={locale} onComplete={handleDiagnosisComplete} />
       ) : (
