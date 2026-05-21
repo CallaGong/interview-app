@@ -55,6 +55,11 @@ export function canAccessStep(
   return step <= getMaxUnlockedStep(progress);
 }
 
+/** Reset Section 1 so the user can study from Step 1 again. */
+export function resetSection1Progress(): LearningProgress {
+  return { ...DEFAULT_LEARNING_PROGRESS };
+}
+
 export function markStepComplete(
   progress: LearningProgress,
   step: LearningStepId

@@ -6,6 +6,7 @@ import { getLearningUi } from "@/lib/case/learning/i18n";
 import {
   canAccessStep,
   markStepComplete,
+  resetSection1Progress,
   type LearningProgress,
   type LearningStepId,
 } from "@/lib/case/learning/types";
@@ -66,16 +67,11 @@ export default function LearningHub({ locale, onStartPractice }: LearningHubProp
       <LearningComplete
         locale={locale}
         onStartPractice={onStartPractice}
-        onReview={() => {
-          const review: LearningProgress = {
-            section1: {
-              currentStep: 1,
-              completedSteps: progress.section1.completedSteps,
-              sectionCompleted: true,
-            },
-          };
-          void persist(review);
+        onReview={async () => {
+          const reset = resetSection1Progress();
+          await persist(reset);
           setActiveStep(1);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
     );
