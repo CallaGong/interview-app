@@ -15,9 +15,14 @@ import type { CaseLocale } from "@/types/case-locale";
 interface Step2IdentifyTypeProps {
   locale: CaseLocale;
   onComplete: (correctCount: number) => void;
+  onSkipToNext: () => void;
 }
 
-export default function Step2IdentifyType({ locale, onComplete }: Step2IdentifyTypeProps) {
+export default function Step2IdentifyType({
+  locale,
+  onComplete,
+  onSkipToNext,
+}: Step2IdentifyTypeProps) {
   const ui = getLearningUi(locale);
   const [answers, setAnswers] = useState<Record<string, QuizCaseType | null>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -28,9 +33,6 @@ export default function Step2IdentifyType({ locale, onComplete }: Step2IdentifyT
   const handleSubmit = () => {
     if (Object.keys(answers).length < STEP2_QUIZ.length) return;
     setSubmitted(true);
-    if (correctCount >= STEP2_PASS_THRESHOLD) {
-      onComplete(correctCount);
-    }
   };
 
   return (
@@ -128,7 +130,14 @@ export default function Step2IdentifyType({ locale, onComplete }: Step2IdentifyT
         </p>
       )}
 
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={onSkipToNext}
+          className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+        >
+          {ui.skipToNext}
+        </button>
         {submitted && !passed && (
           <button
             type="button"
@@ -143,17 +152,21 @@ export default function Step2IdentifyType({ locale, onComplete }: Step2IdentifyT
         )}
         <button
           type="button"
-          disabled={Object.keys(answers).length < STEP2_QUIZ.length}
+          disabled={!submitted && Object.keys(answers).length < STEP2_QUIZ.length}
           onClick={() => {
             if (!submitted) {
               handleSubmit();
-            } else if (passed) {
+            } else {
               onComplete(correctCount);
             }
           }}
           className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {!submitted ? (locale === "zh" ? "提交答案" : "Submit answers") : passed ? ui.next : ui.tryAgain}
+          {!submitted
+            ? locale === "zh"
+              ? "提交答案"
+              : "Submit answers"
+            : ui.next}
         </button>
       </div>
     </div>

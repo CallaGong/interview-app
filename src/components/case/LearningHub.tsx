@@ -15,7 +15,7 @@ import LearningComplete from "@/components/case/learning/LearningComplete";
 import LearningProgressBar from "@/components/case/learning/LearningProgressBar";
 import Step1CaseTypes from "@/components/case/learning/Step1CaseTypes";
 import Step2IdentifyType from "@/components/case/learning/Step2IdentifyType";
-import Step3Frameworks from "@/components/case/learning/Step3Frameworks";
+import Step3InteractiveDrill from "@/components/case/learning/Step3InteractiveDrill";
 import Step4DialogueDemo from "@/components/case/learning/Step4DialogueDemo";
 import type { CaseLocale } from "@/types/case-locale";
 
@@ -42,6 +42,13 @@ export default function LearningHub({ locale, onStartPractice }: LearningHubProp
     if (!canAccessStep(step, progress)) return;
     setActiveStep(step);
     setCurrentStep(step);
+  };
+
+  const goToNextStep = () => {
+    if (activeStep >= 4) return;
+    const next = (activeStep + 1) as LearningStepId;
+    setActiveStep(next);
+    setCurrentStep(next);
   };
 
   const completeStep = async (step: LearningStepId, patch?: Partial<LearningProgress["section1"]>) => {
@@ -78,7 +85,7 @@ export default function LearningHub({ locale, onStartPractice }: LearningHubProp
   }
 
   return (
-    <div className="mx-auto min-w-0 max-w-5xl">
+    <div className="mx-auto min-w-0 max-w-6xl">
       {error && (
         <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
           {ui.loadError}
@@ -95,14 +102,11 @@ export default function LearningHub({ locale, onStartPractice }: LearningHubProp
         onStepClick={handleStepClick}
       />
 
-      {!canAccessStep(activeStep, progress) ? (
-        <p className="rounded-xl border border-slate-700 bg-slate-900/60 p-6 text-center text-sm text-slate-400">
-          {ui.locked}
-        </p>
-      ) : activeStep === 1 ? (
+      {activeStep === 1 ? (
         <Step1CaseTypes
           locale={locale}
           onComplete={() => void completeStep(1)}
+          onSkipToNext={goToNextStep}
         />
       ) : activeStep === 2 ? (
         <Step2IdentifyType
@@ -110,16 +114,19 @@ export default function LearningHub({ locale, onStartPractice }: LearningHubProp
           onComplete={(correctCount) =>
             void completeStep(2, { step2CorrectCount: correctCount })
           }
+          onSkipToNext={goToNextStep}
         />
       ) : activeStep === 3 ? (
-        <Step3Frameworks
+        <Step3InteractiveDrill
           locale={locale}
           onComplete={() => void completeStep(3)}
+          onSkipToNext={goToNextStep}
         />
       ) : (
         <Step4DialogueDemo
           locale={locale}
           onComplete={() => void completeStep(4)}
+          onSkipToNext={() => void completeStep(4)}
         />
       )}
     </div>

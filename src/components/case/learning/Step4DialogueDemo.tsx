@@ -9,9 +9,14 @@ import type { CaseLocale } from "@/types/case-locale";
 interface Step4DialogueDemoProps {
   locale: CaseLocale;
   onComplete: () => void;
+  onSkipToNext: () => void;
 }
 
-export default function Step4DialogueDemo({ locale, onComplete }: Step4DialogueDemoProps) {
+export default function Step4DialogueDemo({
+  locale,
+  onComplete,
+  onSkipToNext,
+}: Step4DialogueDemoProps) {
   const ui = getLearningUi(locale);
   const [demoId, setDemoId] = useState(DIALOGUE_DEMOS[0].id);
   const [segmentIndex, setSegmentIndex] = useState(0);
@@ -90,6 +95,13 @@ export default function Step4DialogueDemo({ locale, onComplete }: Step4DialogueD
       </div>
 
       <div className="flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={onSkipToNext}
+          className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+        >
+          {locale === "zh" ? "跳过，完成本节 →" : "Skip and finish section →"}
+        </button>
         {!atEnd && (
           <button
             type="button"

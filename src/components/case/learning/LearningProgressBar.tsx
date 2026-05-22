@@ -2,7 +2,6 @@
 
 import { getLearningUi } from "@/lib/case/learning/i18n";
 import type { LearningStepId } from "@/lib/case/learning/types";
-import { canAccessStep } from "@/lib/case/learning/types";
 import type { LearningProgress } from "@/lib/case/learning/types";
 import type { CaseLocale } from "@/types/case-locale";
 
@@ -41,23 +40,19 @@ export default function LearningProgressBar({
       </div>
       <div className="mt-3 grid grid-cols-4 gap-2">
         {STEPS.map((step) => {
-          const unlocked = canAccessStep(step, progress);
           const active = step === activeStep;
           const done = progress.section1.completedSteps.includes(step);
           return (
             <button
               key={step}
               type="button"
-              disabled={!unlocked}
-              onClick={() => unlocked && onStepClick(step)}
+              onClick={() => onStepClick(step)}
               className={`rounded-lg px-2 py-2 text-center text-xs font-medium transition ${
                 active
                   ? "bg-sky-600 text-white ring-2 ring-sky-400/50"
                   : done
                     ? "bg-sky-500/20 text-sky-200"
-                    : unlocked
-                      ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                      : "cursor-not-allowed bg-slate-900 text-slate-600"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
               {step}

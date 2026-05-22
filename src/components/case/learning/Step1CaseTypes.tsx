@@ -11,9 +11,14 @@ import type { CaseLocale } from "@/types/case-locale";
 interface Step1CaseTypesProps {
   locale: CaseLocale;
   onComplete: () => void;
+  onSkipToNext: () => void;
 }
 
-export default function Step1CaseTypes({ locale, onComplete }: Step1CaseTypesProps) {
+export default function Step1CaseTypes({
+  locale,
+  onComplete,
+  onSkipToNext,
+}: Step1CaseTypesProps) {
   const ui = getLearningUi(locale);
 
   return (
@@ -55,7 +60,14 @@ export default function Step1CaseTypes({ locale, onComplete }: Step1CaseTypesPro
         ))}
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={onSkipToNext}
+          className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+        >
+          {ui.skipToNext}
+        </button>
         <button
           type="button"
           onClick={onComplete}

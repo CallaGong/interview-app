@@ -41,18 +41,17 @@ export function normalizeLearningProgress(raw: unknown): LearningProgress {
   };
 }
 
-export function getMaxUnlockedStep(progress: LearningProgress): LearningStepId {
-  if (progress.section1.sectionCompleted) return 4;
-  if (progress.section1.completedSteps.length === 0) return 1;
-  const maxDone = Math.max(...progress.section1.completedSteps);
-  return Math.min(4, (maxDone + 1) as LearningStepId) as LearningStepId;
+export function getMaxUnlockedStep(_progress: LearningProgress): LearningStepId {
+  return 4;
 }
 
+/** All steps are always accessible; users can skip ahead without finishing prior steps. */
 export function canAccessStep(
   step: LearningStepId,
   progress: LearningProgress
 ): boolean {
-  return step <= getMaxUnlockedStep(progress);
+  if (progress.section1.sectionCompleted) return true;
+  return step >= 1 && step <= 4;
 }
 
 /** Reset Section 1 so the user can study from Step 1 again. */
