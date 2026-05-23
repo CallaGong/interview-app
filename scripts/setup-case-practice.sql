@@ -130,3 +130,6 @@ CREATE POLICY user_practice_history_select_own ON user_practice_history
 
 CREATE POLICY user_practice_history_insert_own ON user_practice_history
   FOR INSERT WITH CHECK (user_id = (auth.jwt() ->> 'sub'));
+
+-- 6) Case chat session persistence — see scripts/setup-case-session-tables.sql
+-- (practice_sessions + chat_messages; uses case_slug, not UUID case_id)

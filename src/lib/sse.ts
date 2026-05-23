@@ -1,7 +1,11 @@
-export function createSseStream(stream: AsyncIterable<unknown>): ReadableStream<Uint8Array> {
+export function createSseStream(
+  stream: AsyncIterable<unknown>,
+  options?: { onComplete?: (fullText: string) => void | Promise<void> }
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
+      let fullText = "";
       try {
         for await (const raw of stream) {
           const chunk = raw as {
@@ -12,14 +16,17 @@ export function createSseStream(stream: AsyncIterable<unknown>): ReadableStream<
             chunk.type === "content_block_delta" &&
             chunk.delta?.type === "text_delta"
           ) {
+            const text = chunk.delta.text ?? "";
+            fullText += text;
             controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`
-              )
+              encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
             );
           }
         }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        if (options?.onComplete) {
+          await options.onComplete(fullText);
+        }
       } catch (err) {
         console.error("Stream error:", err);
         const message =

@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiUrl } from "@/lib/api";
 import { computeOverallScore } from "@/lib/case/recommendations";
@@ -45,15 +45,35 @@ export default function CaseChat({
   onEvaluationSaved,
 }: CaseChatProps) {
   const { user } = useUser();
+  const openingMessage = buildCaseOpeningMessage(caseQuestion, locale);
+
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: buildCaseOpeningMessage(caseQuestion, locale) },
+    { role: "assistant", content: openingMessage },
   ]);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [resumed, setResumed] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [evaluation, setEvaluation] = useState<CaseEvaluation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const ui =
+    locale === "zh"
+      ? {
+          resumeBanner: "检测到上次未完成的练习，已为你恢复 ✓",
+          restart: "重新开始",
+          loadingSession: "加载练习记录…",
+        }
+      : {
+          resumeBanner: "Resumed your last in-progress practice ✓",
+          restart: "Start over",
+          loadingSession: "Loading practice session…",
+        };
 
   const coveredTopics = extractFrameworkTopics(messages, caseQuestion.key_issues);
 
@@ -65,6 +85,97 @@ export default function CaseChat({
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const markSessionCompleted = useCallback(async (id: string) => {
+    try {
+      await fetch(apiUrl("/api/case/session"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: id, status: "completed" }),
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
+  const applyRestoredEvaluation = useCallback((msgs: ChatMessage[]) => {
+    const lastUser = [...msgs].reverse().find((m) => m.role === "user");
+    const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+    if (
+      lastUser &&
+      isEndEvaluationMessage(lastUser.content) &&
+      lastAssistant
+    ) {
+      const parsed = tryParseCaseEvaluation(lastAssistant.content);
+      if (parsed) setEvaluation(parsed);
+    }
+  }, []);
+
+  const initSession = useCallback(async () => {
+    setSessionLoading(true);
+    setSessionError(null);
+    setResumed(false);
+    setEvaluation(null);
+
+    try {
+      const getRes = await fetch(
+        apiUrl(
+          `/api/case/session?caseId=${encodeURIComponent(caseQuestion.id)}`
+        )
+      );
+
+      if (getRes.ok) {
+        const data = (await getRes.json()) as {
+          session: { id: string } | null;
+          messages: ChatMessage[];
+          resumed?: boolean;
+        };
+
+        if (data.session && data.messages.length > 0) {
+          setSessionId(data.session.id);
+          setMessages(data.messages);
+          setResumed(Boolean(data.resumed));
+          applyRestoredEvaluation(data.messages);
+          return;
+        }
+      } else {
+        const err = (await getRes.json().catch(() => ({}))) as { error?: string };
+        if (err.error) throw new Error(err.error);
+      }
+
+      const postRes = await fetch(apiUrl("/api/case/session"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: caseQuestion.id,
+          locale,
+          caseQuestion,
+        }),
+      });
+
+      if (!postRes.ok) {
+        const err = (await postRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error || "Failed to create session");
+      }
+
+      const created = (await postRes.json()) as {
+        session: { id: string };
+        messages: ChatMessage[];
+      };
+      setSessionId(created.session.id);
+      setMessages(created.messages);
+    } catch (e) {
+      setSessionError(e instanceof Error ? e.message : "Session unavailable");
+      setSessionId(null);
+      setMessages([{ role: "assistant", content: openingMessage }]);
+    } finally {
+      setSessionLoading(false);
+    }
+  }, [applyRestoredEvaluation, caseQuestion, locale, openingMessage]);
+
+  useEffect(() => {
+    void initSession();
+  }, [initSession]);
 
   const saveEvaluationHistory = async (parsed: CaseEvaluation) => {
     const overallScore = computeOverallScore(parsed.scores);
@@ -113,8 +224,55 @@ export default function CaseChat({
     }
   };
 
+  const handleRestart = async () => {
+    if (!sessionId) {
+      void initSession();
+      return;
+    }
+
+    setSessionLoading(true);
+    setError(null);
+    setEvaluation(null);
+    setResumed(false);
+
+    try {
+      await fetch(apiUrl("/api/case/session"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, status: "abandoned" }),
+      });
+
+      const postRes = await fetch(apiUrl("/api/case/session"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: caseQuestion.id,
+          locale,
+          caseQuestion,
+          abandonPrevious: true,
+        }),
+      });
+
+      if (!postRes.ok) {
+        const err = (await postRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error || "Failed to restart");
+      }
+
+      const created = (await postRes.json()) as {
+        session: { id: string };
+        messages: ChatMessage[];
+      };
+      setSessionId(created.session.id);
+      setMessages(created.messages);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Restart failed");
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
   const sendMessage = async (content: string) => {
-    if (!content.trim() || isLoading) return;
+    if (!content.trim() || isLoading || sessionLoading) return;
 
     const userMessage: ChatMessage = { role: "user", content: content.trim() };
     const updatedMessages = [...messages, userMessage];
@@ -128,7 +286,12 @@ export default function CaseChat({
       const response = await fetch(apiUrl("/api/case/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages, caseQuestion, locale }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          caseQuestion,
+          locale,
+          sessionId: sessionId ?? undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -183,6 +346,7 @@ export default function CaseChat({
         if (parsed) {
           setEvaluation(parsed);
           void saveEvaluationHistory(parsed);
+          if (sessionId) void markSessionCompleted(sessionId);
         }
       }
     } catch (e) {
@@ -202,6 +366,12 @@ export default function CaseChat({
     locale === "zh"
       ? "评估报告已生成，请查看下方。"
       : "Evaluation report is ready — see below.";
+
+  if (sessionLoading) {
+    return (
+      <p className="py-16 text-center text-sm text-slate-500">{ui.loadingSession}</p>
+    );
+  }
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 lg:flex-row">
@@ -244,6 +414,26 @@ export default function CaseChat({
           </button>
         </div>
 
+        {resumed && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
+            <p className="text-sm text-emerald-200">{ui.resumeBanner}</p>
+            <button
+              type="button"
+              onClick={() => void handleRestart()}
+              disabled={sessionLoading}
+              className="rounded-md border border-emerald-500/40 px-3 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              {ui.restart}
+            </button>
+          </div>
+        )}
+
+        {sessionError && (
+          <p className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+            {sessionError}
+          </p>
+        )}
+
         <div
           className="min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4"
           style={{ maxHeight: "52vh" }}
@@ -255,28 +445,28 @@ export default function CaseChat({
               i === displayMessages.length - 1;
 
             return (
-            <div
-              key={i}
-              className={`flex min-w-0 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
               <div
-                className={`min-w-0 max-w-[85%] overflow-hidden break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-slate-700 text-white"
-                    : "bg-slate-800/90 text-slate-100"
-                }`}
+                key={i}
+                className={`flex min-w-0 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {hideEvalJson ? (
-                  <p className="text-slate-400 italic">{evalPlaceholder}</p>
-                ) : msg.role === "assistant" ? (
-                  <div className="prose prose-invert prose-sm max-w-none break-words [&_*]:max-w-full [&_code]:break-all [&_p]:my-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_strong]:text-white">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                )}
+                <div
+                  className={`min-w-0 max-w-[85%] overflow-hidden break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-slate-700 text-white"
+                      : "bg-slate-800/90 text-slate-100"
+                  }`}
+                >
+                  {hideEvalJson ? (
+                    <p className="text-slate-400 italic">{evalPlaceholder}</p>
+                  ) : msg.role === "assistant" ? (
+                    <div className="prose prose-invert prose-sm max-w-none break-words [&_*]:max-w-full [&_code]:break-all [&_p]:my-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_strong]:text-white">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  )}
+                </div>
               </div>
-            </div>
             );
           })}
           {isLoading && !streamingContent && (
@@ -312,13 +502,13 @@ export default function CaseChat({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
+            disabled={isLoading || !!evaluation}
             placeholder={inputPlaceholder}
             className="flex-1 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || !!evaluation}
             className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send
