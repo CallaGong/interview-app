@@ -120,7 +120,7 @@ export default function CaseChat({
     try {
       const getRes = await fetch(
         apiUrl(
-          `/api/case/session?caseId=${encodeURIComponent(caseQuestion.id)}`
+          `/api/case/session?caseId=${encodeURIComponent(caseQuestion.id)}&locale=${locale}`
         )
       );
 

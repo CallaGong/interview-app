@@ -26,7 +26,8 @@ function sessionExpiryCutoff(): string {
 
 export async function findActiveCaseSession(
   userId: string,
-  caseSlug: string
+  caseSlug: string,
+  locale: CaseLocale
 ): Promise<CasePracticeSessionRow | null> {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
@@ -35,6 +36,7 @@ export async function findActiveCaseSession(
     .eq("user_id", userId)
     .eq("session_type", "case")
     .eq("case_slug", caseSlug)
+    .eq("locale", locale)
     .eq("status", "in_progress")
     .gt("updated_at", sessionExpiryCutoff())
     .order("updated_at", { ascending: false })
@@ -162,6 +164,7 @@ export async function getSessionForUser(
 export async function abandonInProgressSessions(
   userId: string,
   caseSlug: string,
+  locale: CaseLocale,
   exceptSessionId?: string
 ): Promise<void> {
   const supabase = createSupabaseAdmin();
@@ -170,6 +173,7 @@ export async function abandonInProgressSessions(
     .update({ status: "abandoned", updated_at: new Date().toISOString() })
     .eq("user_id", userId)
     .eq("case_slug", caseSlug)
+    .eq("locale", locale)
     .eq("session_type", "case")
     .eq("status", "in_progress");
 

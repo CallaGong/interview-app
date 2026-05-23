@@ -46,7 +46,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "caseId is required" }, { status: 400 });
     }
 
-    const session = await findActiveCaseSession(userId, caseSlug);
+    const locale = parseCaseLocale(req.nextUrl.searchParams.get("locale"));
+    const session = await findActiveCaseSession(userId, caseSlug, locale);
     if (!session) {
       return NextResponse.json({ session: null, messages: [] });
     }
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
     const locale = parseCaseLocale(body.locale);
 
     if (body.abandonPrevious !== false) {
-      await abandonInProgressSessions(userId, body.caseId);
+      await abandonInProgressSessions(userId, body.caseId, locale);
     }
 
     let caseQuestion = body.caseQuestion;
