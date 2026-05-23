@@ -3,9 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiUrl } from "@/lib/api";
 
-const MAX_RECORD_SECONDS = 90;
-const SILENCE_MS = 3000;
-const SILENCE_THRESHOLD = 0.018;
 const VOICE_MODE_STORAGE_KEY = "caseready_voice_record_mode";
 
 export type VoiceInputMode = "hold" | "click";
@@ -74,7 +71,6 @@ export default function VoiceInput({
   const rafRef = useRef<number | null>(null);
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartRef = useRef<number>(0);
-  const silenceStartRef = useRef<number | null>(null);
   const isRecordingRef = useRef(false);
   const activeMimeTypeRef = useRef<string>("audio/webm");
   const stopRecordingRef = useRef<() => void>(() => {});
@@ -136,7 +132,6 @@ export default function VoiceInput({
     audioContextRef.current = null;
     analyserRef.current = null;
     isRecordingRef.current = false;
-    silenceStartRef.current = null;
   }, []);
 
   useEffect(() => () => cleanupMedia(), [cleanupMedia]);
@@ -238,33 +233,14 @@ export default function VoiceInput({
 
     const data = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(data);
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) sum += data[i];
-    const avg = sum / data.length / 255;
-
     const levels = Array.from({ length: 5 }, (_, i) => {
       const slice = data[Math.floor((i / 5) * data.length)] ?? 0;
       return Math.max(0.15, slice / 255);
     });
     setWaveLevels(levels);
 
-    if (avg < SILENCE_THRESHOLD) {
-      if (silenceStartRef.current == null) {
-        silenceStartRef.current = Date.now();
-      } else if (Date.now() - silenceStartRef.current >= SILENCE_MS) {
-        stopRecordingRef.current();
-        return;
-      }
-    } else {
-      silenceStartRef.current = null;
-    }
-
     const elapsed = Math.floor((Date.now() - recordingStartRef.current) / 1000);
     setDurationSec(elapsed);
-    if (elapsed >= MAX_RECORD_SECONDS) {
-      stopRecordingRef.current();
-      return;
-    }
 
     rafRef.current = requestAnimationFrame(monitorAudio);
   }, []);
@@ -323,16 +299,12 @@ export default function VoiceInput({
 
       isRecordingRef.current = true;
       recordingStartRef.current = Date.now();
-      silenceStartRef.current = null;
       setDurationSec(0);
       setPhase("recording");
 
       durationTimerRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - recordingStartRef.current) / 1000);
         setDurationSec(elapsed);
-        if (elapsed >= MAX_RECORD_SECONDS) {
-          stopRecordingRef.current();
-        }
       }, 500);
 
       rafRef.current = requestAnimationFrame(monitorAudio);
@@ -510,8 +482,7 @@ export default function VoiceInput({
 
         <p className="text-center text-xs text-slate-500">
           {recordMode === "hold" ? copy.holdHint : copy.clickHint}
-          {" · "}
-          {language === "zh" ? `最长 ${MAX_RECORD_SECONDS} 秒` : `Max ${MAX_RECORD_SECONDS}s`}
+          {language === "zh" ? " · 松开结束" : " · Release to finish"}
         </p>
       </div>
     </div>

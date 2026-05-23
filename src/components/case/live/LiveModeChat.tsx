@@ -4,16 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AssistantMessage from "@/components/case/live/AssistantMessage";
 import CaseMap from "@/components/case/live/CaseMap";
 import InterviewSummary from "@/components/case/live/InterviewSummary";
+import TimePromiseTracker from "@/components/case/live/TimePromiseTracker";
 import VoiceInput from "@/components/case/voice/VoiceInput";
 import { apiUrl } from "@/lib/api";
 import { getBranchingTree } from "@/lib/case/branching/case-trees";
-import type { LiveInterruptEvent } from "@/lib/case/live/live-types";
 import {
   parseNodeMarker,
   stripNodeMarkersFromStream,
 } from "@/lib/case/live/parse-node";
 import { parseChartsFromContent } from "@/lib/case/live/parse-chart";
-import { classifyInterruptPurpose } from "@/lib/case/live/summary-scores";
+import { extractTimePromise } from "@/lib/case/live/parse-time-promise";
 import type { CaseLocale } from "@/types/case-locale";
 import type { CaseQuestion, ChatMessage } from "@/types";
 
@@ -39,9 +39,18 @@ const TIME_LIMIT_SECONDS: Record<LiveTimeLimitMinutes, number> = {
   45: 45 * 60,
 };
 
-const SILENCE_DELAY_MS = 5000;
+const TIME_UP_MESSAGE = {
+  en: "Time's up — what's your answer?",
+  zh: "时间到了，给我你的答案。",
+} as const;
 
 type Phase = "countdown" | "interview" | "summary";
+
+interface TimePromiseState {
+  promisedSeconds: number;
+  labelMinutes: number;
+  startedAt: number;
+}
 
 export default function LiveModeChat({
   caseQuestion,
@@ -67,32 +76,22 @@ export default function LiveModeChat({
   const [nodeTurnCounts, setNodeTurnCounts] = useState<Record<string, number>>(
     {}
   );
-  const [interruptEvents, setInterruptEvents] = useState<LiveInterruptEvent[]>(
-    []
-  );
-  const [silenceCount, setSilenceCount] = useState(0);
+  const [timePromise, setTimePromise] = useState<TimePromiseState | null>(null);
   const [input, setInput] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [isSilenceDelay, setIsSilenceDelay] = useState(false);
-  const [postSilenceReplyLengths, setPostSilenceReplyLengths] = useState<
-    number[]
-  >([]);
   const [error, setError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [activeChartFocus, setActiveChartFocus] = useState(false);
 
   const lastAiAtRef = useRef<number>(Date.now());
-  const typingStartedRef = useRef<number | null>(null);
-  const interruptCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dialogueRoundRef = useRef(0);
   const lastUserInputRef = useRef("");
   const interviewStartedRef = useRef<number | null>(null);
-  const awaitingPostSilenceReplyRef = useRef(false);
+  const timeUpNotifiedRef = useRef(false);
 
   const ui =
     locale === "zh"
@@ -101,7 +100,6 @@ export default function LiveModeChat({
           back: "返回",
           send: "发送",
           placeholder: "输入回答…",
-          silencePlaceholder: "...",
           text: "⌨️ 文字",
           voice: "🎤 语音",
           starting: "即将开始…",
@@ -111,7 +109,6 @@ export default function LiveModeChat({
           back: "Back",
           send: "Send",
           placeholder: "Type your answer…",
-          silencePlaceholder: "...",
           text: "⌨️ Text",
           voice: "🎤 Voice",
           starting: "Starting soon…",
@@ -163,8 +160,20 @@ export default function LiveModeChat({
       setStartedAt(data.startedAt);
       setCurrentNodeId(data.currentNodeId);
       setVisitedNodes(data.visitedNodes);
-      setMessages([{ role: "assistant", content: data.openingMessage }]);
+      const opening = data.openingMessage;
+      setMessages([{ role: "assistant", content: opening }]);
       lastAiAtRef.current = Date.now();
+      const seconds = extractTimePromise(opening, locale);
+      if (seconds != null) {
+        setTimePromise({
+          promisedSeconds: seconds,
+          labelMinutes: Math.max(1, Math.round(seconds / 60)),
+          startedAt: Date.now(),
+        });
+        timeUpNotifiedRef.current = false;
+      } else {
+        setTimePromise(null);
+      }
     } catch (e) {
       setSessionError(e instanceof Error ? e.message : "Session failed");
     }
@@ -180,122 +189,53 @@ export default function LiveModeChat({
     window.setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  const appendInterrupt = useCallback(
-    (line: string, reasons?: string[]) => {
-      const event: LiveInterruptEvent = {
-        userSaid: lastUserInputRef.current || (locale === "zh" ? "（回答中）" : "(mid-answer)"),
-        aiSaid: line,
-        purpose: classifyInterruptPurpose(line, reasons, locale),
-        reasons,
-        at: new Date().toISOString(),
-      };
-      setInterruptEvents((prev) => [...prev, event]);
-      setMessages((prev) => [...prev, { role: "assistant", content: line }]);
-      lastAiAtRef.current = Date.now();
+  const clearTimePromise = useCallback(() => {
+    setTimePromise(null);
+    timeUpNotifiedRef.current = false;
+  }, []);
+
+  const beginTimePromiseFromMessage = useCallback(
+    (content: string) => {
+      const seconds = extractTimePromise(content, locale);
+      if (seconds == null) return;
+      const labelMinutes = Math.max(1, Math.round(seconds / 60));
+      setTimePromise({
+        promisedSeconds: seconds,
+        labelMinutes,
+        startedAt: Date.now(),
+      });
+      timeUpNotifiedRef.current = false;
     },
     [locale]
   );
 
-  const runInterruptCheck = useCallback(
-    async (partial: string) => {
-      if (!partial.trim() || isLoading || isSilenceDelay) return;
-      lastUserInputRef.current = partial;
-      const typingSec = typingStartedRef.current
-        ? (Date.now() - typingStartedRef.current) / 1000
-        : 0;
-      try {
-        const res = await fetch(apiUrl("/api/case/live/interrupt-check"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            current_input: partial,
-            time_since_last_ai: (Date.now() - lastAiAtRef.current) / 1000,
-            visited_nodes: visitedNodes,
-            language: locale,
-            typing_duration_seconds: typingSec,
-          }),
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          should_interrupt: boolean;
-          interrupt_message: string | null;
-          reasons?: string[];
-        };
-        if (data.should_interrupt && data.interrupt_message) {
-          appendInterrupt(data.interrupt_message, data.reasons);
-          setInput("");
-          typingStartedRef.current = null;
-        }
-      } catch {
-        /* non-blocking */
-      }
-    },
-    [appendInterrupt, isLoading, isSilenceDelay, locale, visitedNodes]
-  );
+  const handleTimePromiseExpired = useCallback(() => {
+    if (timeUpNotifiedRef.current) return;
+    timeUpNotifiedRef.current = true;
+    const line = TIME_UP_MESSAGE[locale];
+    setMessages((prev) => [...prev, { role: "assistant", content: line }]);
+    lastAiAtRef.current = Date.now();
+  }, [locale]);
 
   useEffect(() => {
-    if (phase !== "interview" || inputMode !== "text") {
-      if (interruptCheckRef.current) {
-        clearInterval(interruptCheckRef.current);
-        interruptCheckRef.current = null;
-      }
-      return;
-    }
-    if (input.length > 0 && !typingStartedRef.current) {
-      typingStartedRef.current = Date.now();
-    }
-    if (!input.trim()) {
-      typingStartedRef.current = null;
-      return;
-    }
-    interruptCheckRef.current = setInterval(() => {
-      void runInterruptCheck(input);
-    }, 5000);
-    return () => {
-      if (interruptCheckRef.current) clearInterval(interruptCheckRef.current);
-    };
-  }, [input, inputMode, phase, runInterruptCheck]);
-
-  const shouldApplySilence = useCallback(() => {
-    dialogueRoundRef.current += 1;
-    if (dialogueRoundRef.current % 3 !== 0) return false;
-    return Math.random() < 0.2;
-  }, []);
+    return () => clearTimePromise();
+  }, [clearTimePromise]);
 
   const deliverAssistantMessage = useCallback(
-    (displayContent: string, applySilence: boolean) => {
-      if (applySilence) {
-        setSilenceCount((n) => n + 1);
-        setIsSilenceDelay(true);
-        awaitingPostSilenceReplyRef.current = true;
-        window.setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: displayContent },
-          ]);
-          setIsSilenceDelay(false);
-          lastAiAtRef.current = Date.now();
-          const { charts } = parseChartsFromContent(displayContent);
-          if (charts.length > 0) {
-            setActiveChartFocus(true);
-            focusInput();
-          }
-        }, SILENCE_DELAY_MS);
-      } else {
-        setIsSilenceDelay(false);
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: displayContent },
-        ]);
-        lastAiAtRef.current = Date.now();
-        const { charts } = parseChartsFromContent(displayContent);
-        if (charts.length > 0) {
-          setActiveChartFocus(true);
-          focusInput();
-        }
+    (displayContent: string) => {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: displayContent },
+      ]);
+      lastAiAtRef.current = Date.now();
+      beginTimePromiseFromMessage(displayContent);
+      const { charts } = parseChartsFromContent(displayContent);
+      if (charts.length > 0) {
+        setActiveChartFocus(true);
+        focusInput();
       }
     },
-    [focusInput]
+    [beginTimePromiseFromMessage, focusInput]
   );
 
   const streamChat = async (
@@ -341,9 +281,7 @@ export default function LiveModeChat({
           if (payload.error) throw new Error(payload.error);
           if (payload.text) {
             fullContent += payload.text;
-            if (!isSilenceDelay) {
-              setStreamingContent(stripNodeMarkersFromStream(fullContent));
-            }
+            setStreamingContent(stripNodeMarkersFromStream(fullContent));
           }
         } catch {
           /* ignore partial json */
@@ -358,7 +296,8 @@ export default function LiveModeChat({
     async (rawText: string) => {
       const text = rawText.trim();
       if (!text || isLoading || !sessionId || phase !== "interview") return;
-      if (isSilenceDelay) return;
+
+      clearTimePromise();
 
       const nodeAtSend = currentNodeId ?? tree?.rootNode ?? "intro";
       setNodeTurnCounts((prev) => ({
@@ -367,29 +306,18 @@ export default function LiveModeChat({
       }));
 
       lastUserInputRef.current = text;
-      if (awaitingPostSilenceReplyRef.current) {
-        setPostSilenceReplyLengths((prev) => [...prev, text.length]);
-        awaitingPostSilenceReplyRef.current = false;
-      }
       const userMessage: ChatMessage = { role: "user", content: text };
       const history = [...messages, userMessage];
       const messagesBeforeSend = messages;
       setMessages(history);
       setInput("");
       setVoiceError(null);
-      typingStartedRef.current = null;
       setIsLoading(true);
       setStreamingContent("");
       setError(null);
       setActiveChartFocus(false);
 
-      const applySilence = shouldApplySilence();
-
       try {
-        if (applySilence) {
-          setIsSilenceDelay(true);
-        }
-
         const fullContent = await streamChat(text, messagesBeforeSend);
         const { displayContent, nextNodeId } = parseNodeMarker(fullContent);
         const contentToShow =
@@ -413,27 +341,22 @@ export default function LiveModeChat({
         }
 
         setStreamingContent("");
-        deliverAssistantMessage(
-          contentToShow,
-          applySilence && phase === "interview"
-        );
+        deliverAssistantMessage(contentToShow);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Send failed");
         setMessages(messagesBeforeSend);
-        setIsSilenceDelay(false);
       } finally {
         setIsLoading(false);
       }
     },
     [
+      clearTimePromise,
       currentNodeId,
       deliverAssistantMessage,
       isLoading,
-      isSilenceDelay,
       messages,
       phase,
       sessionId,
-      shouldApplySilence,
       streamChat,
       tree?.rootNode,
     ]
@@ -444,6 +367,7 @@ export default function LiveModeChat({
   };
 
   const handleTimeUp = useCallback(() => {
+    clearTimePromise();
     setPhase("summary");
     if (sessionId) {
       void fetch(apiUrl("/api/case/session"), {
@@ -452,7 +376,7 @@ export default function LiveModeChat({
         body: JSON.stringify({ sessionId, status: "completed" }),
       });
     }
-  }, [sessionId]);
+  }, [sessionId, clearTimePromise]);
 
   useEffect(() => {
     if (!onTimerStateChange) return;
@@ -500,21 +424,18 @@ export default function LiveModeChat({
         elapsedSeconds={elapsedSeconds}
         visitedNodeIds={visitedNodes}
         messages={messages}
-        interruptEvents={interruptEvents}
-        silenceCount={silenceCount}
-        postSilenceReplyLengths={postSilenceReplyLengths}
+        interruptEvents={[]}
+        silenceCount={0}
         onClose={onExit}
       />
     );
   }
 
-  const inputPlaceholder = isSilenceDelay
-    ? ui.silencePlaceholder
-    : activeChartFocus
-      ? locale === "zh"
-        ? "请根据数据回答…"
-        : "Answer based on the data…"
-      : ui.placeholder;
+  const inputPlaceholder = activeChartFocus
+    ? locale === "zh"
+      ? "请根据数据回答…"
+      : "Answer based on the data…"
+    : ui.placeholder;
 
   return (
     <div className="relative flex min-h-[560px] flex-col">
@@ -564,12 +485,7 @@ export default function LiveModeChat({
                 )}
               </div>
             ))}
-            {isSilenceDelay && !streamingContent && (
-              <div className="mr-8 rounded-lg border border-slate-600 bg-slate-800/40 px-4 py-3 text-sm text-slate-500 italic">
-                {locale === "zh" ? "面试官正在听…" : "Interviewer listening…"}
-              </div>
-            )}
-            {streamingContent && !isSilenceDelay && (
+            {streamingContent && (
               <div className="mr-8 rounded-lg bg-slate-800/60 px-4 py-2 text-sm text-slate-300">
                 <AssistantMessage
                   content={streamingContent}
@@ -582,6 +498,15 @@ export default function LiveModeChat({
           </div>
 
           <div className="border-t border-slate-700/80 p-3">
+            {timePromise && (
+              <TimePromiseTracker
+                locale={locale}
+                promisedSeconds={timePromise.promisedSeconds}
+                labelMinutes={timePromise.labelMinutes}
+                startedAt={timePromise.startedAt}
+                onExpired={handleTimePromiseExpired}
+              />
+            )}
             <div className="mb-2 flex gap-2">
               <button
                 type="button"
@@ -622,21 +547,17 @@ export default function LiveModeChat({
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={isLoading || !sessionId || isSilenceDelay}
+                  disabled={isLoading || !sessionId}
                   placeholder={inputPlaceholder}
                   className={`flex-1 rounded-lg border bg-slate-800/80 px-3 py-2 text-sm text-white ${
-                    isSilenceDelay
-                      ? "border-amber-500/50 animate-pulse"
-                      : activeChartFocus
-                        ? "border-violet-500 ring-1 ring-violet-500/50"
-                        : "border-slate-700"
+                    activeChartFocus
+                      ? "border-violet-500 ring-1 ring-violet-500/50"
+                      : "border-slate-700"
                   }`}
                 />
                 <button
                   type="submit"
-                  disabled={
-                    !input.trim() || isLoading || !sessionId || isSilenceDelay
-                  }
+                  disabled={!input.trim() || isLoading || !sessionId}
                   className="rounded-lg bg-rose-600 px-4 py-2 text-sm text-white disabled:opacity-50"
                 >
                   {ui.send}
@@ -645,7 +566,7 @@ export default function LiveModeChat({
             ) : (
               <VoiceInput
                 language={locale}
-                disabled={isLoading || !sessionId || isSilenceDelay}
+                disabled={isLoading || !sessionId}
                 onSend={(text) => void sendMessage(text)}
                 onEdit={(text) => {
                   setInput(text);
