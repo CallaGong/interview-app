@@ -31,6 +31,20 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function pickMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+    return "audio/webm;codecs=opus";
+  }
+  if (MediaRecorder.isTypeSupported("audio/webm")) {
+    return "audio/webm";
+  }
+  if (MediaRecorder.isTypeSupported("audio/mp4")) {
+    return "audio/mp4";
+  }
+  return "";
+}
+
 export default function VoiceInput({
   language,
   mode: modeProp,
@@ -55,6 +69,7 @@ export default function VoiceInput({
   const recordingStartRef = useRef<number>(0);
   const silenceStartRef = useRef<number | null>(null);
   const isRecordingRef = useRef(false);
+  const activeMimeTypeRef = useRef<string>("audio/webm");
   const stopRecordingRef = useRef<() => void>(() => {});
 
   const copy =
@@ -68,7 +83,8 @@ export default function VoiceInput({
           send: "发送",
           holdMode: "按住说话",
           clickMode: "点击切换",
-          micDenied: "无法访问麦克风",
+          micDenied: "无法访问麦克风，请检查浏览器权限",
+          noMic: "当前浏览器不支持录音",
           transcribeFailed: "转写失败，请重试",
         }
       : {
@@ -80,7 +96,8 @@ export default function VoiceInput({
           send: "Send",
           holdMode: "Hold",
           clickMode: "Tap toggle",
-          micDenied: "Microphone access denied",
+          micDenied: "Microphone access denied. Check browser permissions.",
+          noMic: "Recording is not supported in this browser.",
           transcribeFailed: "Transcription failed",
         };
 
@@ -98,7 +115,7 @@ export default function VoiceInput({
       clearInterval(durationTimerRef.current);
       durationTimerRef.current = null;
     }
-    if (mediaRecorderRef.current?.state !== "inactive") {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try {
         mediaRecorderRef.current.stop();
       } catch {
@@ -108,7 +125,7 @@ export default function VoiceInput({
     mediaRecorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-    void audioContextRef.current?.close();
+    void audioContextRef.current?.close().catch(() => {});
     audioContextRef.current = null;
     analyserRef.current = null;
     isRecordingRef.current = false;
@@ -118,11 +135,17 @@ export default function VoiceInput({
   useEffect(() => () => cleanupMedia(), [cleanupMedia]);
 
   const uploadAndTranscribe = useCallback(
-    async (blob: Blob) => {
+    async (blob: Blob, mimeType: string) => {
       setPhase("transcribing");
+      console.log("Uploading to Whisper...", {
+        blobSize: blob.size,
+        mimeType,
+      });
+
       try {
         const formData = new FormData();
-        formData.append("audio", blob, "recording.webm");
+        formData.append("audio", blob, `recording.${mimeType.includes("mp4") ? "mp4" : "webm"}`);
+        formData.append("mimeType", mimeType);
         formData.append("language", language);
 
         const res = await fetch(apiUrl("/api/voice/transcribe"), {
@@ -132,14 +155,18 @@ export default function VoiceInput({
 
         if (!res.ok) {
           const err = (await res.json().catch(() => ({}))) as { error?: string };
+          console.error("Whisper upload failed:", res.status, err);
           throw new Error(err.error || copy.transcribeFailed);
         }
 
         const data = (await res.json()) as { text?: string };
-        setTranscript((data.text ?? "").trim());
+        const text = (data.text ?? "").trim();
+        console.log("Transcription result:", text);
+        setTranscript(text);
         setPhase("review");
         setEditing(false);
       } catch (e) {
+        console.error("Transcription error:", e);
         onError?.(e instanceof Error ? e.message : copy.transcribeFailed);
         setPhase("idle");
       }
@@ -167,18 +194,33 @@ export default function VoiceInput({
       return;
     }
 
+    const mimeType = activeMimeTypeRef.current;
+
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const blob = new Blob(chunksRef.current, {
+        type: mimeType || "audio/webm",
+      });
       chunksRef.current = [];
       cleanupMedia();
+
+      console.log("Recording stopped, blob size:", blob.size, "mimeType:", mimeType);
+
       if (blob.size < 100) {
+        console.warn("Recording too short, discarding");
         setPhase("idle");
         return;
       }
-      void uploadAndTranscribe(blob);
+
+      void uploadAndTranscribe(blob, mimeType);
     };
 
-    recorder.stop();
+    try {
+      recorder.stop();
+    } catch (e) {
+      console.error("MediaRecorder.stop failed:", e);
+      cleanupMedia();
+      setPhase("idle");
+    }
   }, [cleanupMedia, uploadAndTranscribe]);
 
   stopRecordingRef.current = stopRecording;
@@ -223,10 +265,46 @@ export default function VoiceInput({
   const startRecording = useCallback(async () => {
     if (disabled || isRecordingRef.current) return;
 
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      console.error("getUserMedia not available");
+      onError?.(copy.noMic);
+      return;
+    }
+
+    if (typeof MediaRecorder === "undefined") {
+      console.error("MediaRecorder not available");
+      onError?.(copy.noMic);
+      return;
+    }
+
     try {
+      console.log("Requesting microphone...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+
+      const mimeType = pickMimeType();
+      activeMimeTypeRef.current = mimeType || "audio/webm";
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorderRef.current = recorder;
       chunksRef.current = [];
+      activeMimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
+
+      console.log(
+        "MediaRecorder created with mimeType:",
+        activeMimeTypeRef.current
+      );
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onerror = (e) => {
+        console.error("MediaRecorder error:", e);
+      };
+
+      recorder.start(200);
+      console.log("Recording started");
 
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
@@ -235,17 +313,6 @@ export default function VoiceInput({
       analyser.fftSize = 256;
       source.connect(analyser);
       analyserRef.current = analyser;
-
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-
-      const recorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.start(200);
 
       isRecordingRef.current = true;
       recordingStartRef.current = Date.now();
@@ -262,12 +329,13 @@ export default function VoiceInput({
       }, 500);
 
       rafRef.current = requestAnimationFrame(monitorAudio);
-    } catch {
+    } catch (e) {
+      console.error("Microphone request failed:", e);
       onError?.(copy.micDenied);
       cleanupMedia();
       setPhase("idle");
     }
-  }, [cleanupMedia, copy.micDenied, disabled, monitorAudio, onError]);
+  }, [cleanupMedia, copy.micDenied, copy.noMic, disabled, monitorAudio, onError]);
 
   const toggleRecordMode = () => {
     const next = recordMode === "hold" ? "click" : "hold";
