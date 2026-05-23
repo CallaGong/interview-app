@@ -1,3 +1,4 @@
+import { supportsLiveMode } from "@/lib/case/branching/case-trees";
 import type { CaseLocale } from "@/types/case-locale";
 import type { CaseDifficulty, CaseQuestion } from "@/types";
 
@@ -224,6 +225,7 @@ export function getCaseQuestions(locale: CaseLocale): CaseQuestion[] {
       id: entry.id,
       type: entry.type,
       difficulty: entry.difficulty,
+      supports_live_mode: supportsLiveMode(entry.id),
       ...content,
     };
   });

@@ -24,6 +24,7 @@ Add these in **Vercel → Project → Settings → Environment Variables**. Enab
 |----------|---------|
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `CLAUDE_MODEL` | e.g. `claude-sonnet-4-6` (optional if default in code) |
+| `OPENAI_API_KEY` | OpenAI API key for Whisper voice transcription (Case Practice) |
 
 ## Supabase (required for Case history / Resume storage)
 

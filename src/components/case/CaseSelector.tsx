@@ -15,7 +15,8 @@ type DifficultyFilter = "all" | CaseDifficulty;
 interface CaseSelectorProps {
   cases: CaseQuestion[];
   selected: CaseQuestion | null;
-  onSelect: (c: CaseQuestion) => void;
+  onPractice: (c: CaseQuestion) => void;
+  onLive: (c: CaseQuestion) => void;
   disabled?: boolean;
   locale?: CaseLocale;
   recommendedCaseId?: string | null;
@@ -26,7 +27,8 @@ interface CaseSelectorProps {
 export default function CaseSelector({
   cases,
   selected,
-  onSelect,
+  onPractice,
+  onLive,
   disabled,
   locale = "en",
   recommendedCaseId,
@@ -34,9 +36,22 @@ export default function CaseSelector({
   onDifficultyChange,
 }: CaseSelectorProps) {
   const filters: DifficultyFilter[] = ["all", "easy", "medium", "hard"];
-  const c = locale === "zh"
-    ? { all: "全部", recommended: "推荐" }
-    : { all: "All", recommended: "Recommended" };
+  const c =
+    locale === "zh"
+      ? {
+          all: "全部",
+          recommended: "推荐",
+          practice: "📝 练习模式",
+          live: "🎯 Live 模式",
+          comingSoon: "即将推出",
+        }
+      : {
+          all: "All",
+          recommended: "Recommended",
+          practice: "📝 Practice Mode",
+          live: "🎯 Live Mode",
+          comingSoon: "Coming soon",
+        };
 
   const filtered =
     activeDifficulty === "all"
@@ -80,19 +95,18 @@ export default function CaseSelector({
           {filtered.map((item) => {
             const isSelected = selected?.id === item.id;
             const isRecommended = recommendedCaseId === item.id;
+            const liveEnabled = item.supports_live_mode === true;
+
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => onSelect(item)}
-                className={`relative rounded-xl border p-4 text-left transition ${
+                className={`relative flex flex-col rounded-xl border p-4 transition ${
                   isRecommended
                     ? "border-amber-400/70 bg-amber-500/10 ring-2 ring-amber-400/40"
                     : isSelected
                       ? "border-sky-500/60 bg-sky-500/10 ring-1 ring-sky-500/40"
-                      : "border-slate-700/80 bg-slate-900/60 hover:border-slate-600 hover:bg-slate-800/60"
-                } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+                      : "border-slate-700/80 bg-slate-900/60"
+                } ${disabled ? "opacity-60" : ""}`}
               >
                 {isRecommended && (
                   <span className="absolute right-3 top-3 rounded-full bg-amber-500/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
@@ -109,9 +123,42 @@ export default function CaseSelector({
                     {difficultyLabel(locale, item.difficulty)}
                   </span>
                 </div>
-                <h3 className="mb-1 text-sm font-semibold text-white">{item.title}</h3>
-                <p className="line-clamp-2 text-xs text-slate-400">{item.description}</p>
-              </button>
+                <h3 className="mb-1 text-sm font-semibold text-white">
+                  {item.title}
+                </h3>
+                <p className="mb-3 line-clamp-2 flex-1 text-xs text-slate-400">
+                  {item.description}
+                </p>
+                <div className="mt-auto flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onPractice(item)}
+                    className="w-full rounded-lg bg-slate-800 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed"
+                  >
+                    {c.practice}
+                  </button>
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      disabled={disabled || !liveEnabled}
+                      onClick={() => liveEnabled && onLive(item)}
+                      className={`w-full rounded-lg py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
+                        liveEnabled
+                          ? "bg-rose-600 text-white hover:bg-rose-500"
+                          : "bg-slate-800/80 text-slate-500"
+                      }`}
+                    >
+                      {c.live}
+                    </button>
+                    {!liveEnabled && (
+                      <span className="pointer-events-none absolute -top-8 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200 group-hover:block">
+                        {c.comingSoon}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>

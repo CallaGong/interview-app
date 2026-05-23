@@ -9,6 +9,12 @@ import CaseLocaleToggle from "@/components/case/CaseLocaleToggle";
 import CasePageTabs, { type CasePageTab } from "@/components/case/CasePageTabs";
 import CaseSelector from "@/components/case/CaseSelector";
 import CaseChat from "@/components/case/CaseChat";
+import CountdownTimer from "@/components/case/live/CountdownTimer";
+import LiveModeChat, {
+  type LiveTimerState,
+  type LiveTimeLimitMinutes,
+} from "@/components/case/live/LiveModeChat";
+import LiveModeSetupModal from "@/components/case/live/LiveModeSetupModal";
 import { apiUrl } from "@/lib/api";
 import type { CaseDiagnosisResult } from "@/lib/case/diagnosis";
 import {
@@ -43,6 +49,12 @@ export default function CasePage() {
   const [casesError, setCasesError] = useState<string | null>(null);
   const [selectedCase, setSelectedCase] = useState<CaseQuestion | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
+  const [practiceMode, setPracticeMode] = useState<"practice" | "live">(
+    "practice"
+  );
+  const [liveMinutes, setLiveMinutes] = useState<LiveTimeLimitMinutes>(15);
+  const [liveSetupCase, setLiveSetupCase] = useState<CaseQuestion | null>(null);
+  const [liveTimer, setLiveTimer] = useState<LiveTimerState | null>(null);
 
   const [loadingPrefs, setLoadingPrefs] = useState(true);
   const [diagnosisCompleted, setDiagnosisCompleted] = useState(false);
@@ -172,6 +184,7 @@ export default function CasePage() {
   const handleLocaleChange = (next: CaseLocale) => {
     setLocale(next);
     setSelectedCase(null);
+    setLiveTimer(null);
     setSessionKey((k) => k + 1);
   };
 
@@ -211,6 +224,7 @@ export default function CasePage() {
               type="button"
               onClick={() => {
                 setSelectedCase(null);
+                setLiveTimer(null);
                 setSessionKey((k) => k + 1);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition hover:border-slate-600 hover:text-white"
@@ -234,7 +248,15 @@ export default function CasePage() {
             {locale === "zh" ? "返回首页" : "Back to home"}
           </Link>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          {liveTimer && (
+            <CountdownTimer
+              durationSeconds={liveTimer.durationSeconds}
+              startedAt={liveTimer.startedAt}
+              onTimeUp={liveTimer.onTimeUp}
+              locale={locale}
+            />
+          )}
           <CaseLocaleToggle
             locale={locale}
             onChange={handleLocaleChange}
@@ -305,20 +327,54 @@ export default function CasePage() {
                 <p className="mb-4 text-sm text-rose-400">{casesError}</p>
               )}
               {!loadingCases && cases.length > 0 && (
-                <CaseSelector
-                  cases={cases}
-                  selected={selectedCase}
-                  locale={locale}
-                  recommendedCaseId={recommendation?.recommendedCaseId}
-                  activeDifficulty={difficultyFilter}
-                  onDifficultyChange={setDifficultyFilter}
-                  onSelect={(item) => {
-                    setSelectedCase(item);
-                    setSessionKey((k) => k + 1);
-                  }}
-                />
+                <>
+                  <CaseSelector
+                    cases={cases}
+                    selected={selectedCase}
+                    locale={locale}
+                    recommendedCaseId={recommendation?.recommendedCaseId}
+                    activeDifficulty={difficultyFilter}
+                    onDifficultyChange={setDifficultyFilter}
+                    onPractice={(item) => {
+                      setPracticeMode("practice");
+                      setSelectedCase(item);
+                      setSessionKey((k) => k + 1);
+                    }}
+                    onLive={(item) => setLiveSetupCase(item)}
+                  />
+                  {liveSetupCase && (
+                    <LiveModeSetupModal
+                      caseQuestion={liveSetupCase}
+                      locale={locale}
+                      minutes={liveMinutes}
+                      onMinutesChange={setLiveMinutes}
+                      onCancel={() => setLiveSetupCase(null)}
+                      onStart={() => {
+                        setPracticeMode("live");
+                        setSelectedCase(liveSetupCase);
+                        setLiveSetupCase(null);
+                        setSessionKey((k) => k + 1);
+                      }}
+                    />
+                  )}
+                </>
               )}
             </section>
+          ) : practiceMode === "live" &&
+            selectedCase.supports_live_mode ? (
+            <LiveModeChat
+              key={`live-${selectedCase.id}-${locale}-${sessionKey}-${liveMinutes}`}
+              caseQuestion={selectedCase}
+              locale={locale}
+              timeLimitMinutes={liveMinutes}
+              onTimerStateChange={setLiveTimer}
+              onExit={() => {
+                setLiveTimer(null);
+                setSelectedCase(null);
+                setPracticeMode("practice");
+                setSessionKey((k) => k + 1);
+              }}
+            />
           ) : (
             <CaseChat
               key={`${selectedCase.id}-${locale}-${sessionKey}`}
@@ -326,6 +382,7 @@ export default function CasePage() {
               locale={locale}
               onReset={() => {
                 setSelectedCase(null);
+                setPracticeMode("practice");
                 setSessionKey((k) => k + 1);
                 loadRecommendations(locale);
               }}

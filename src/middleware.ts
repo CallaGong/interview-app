@@ -14,6 +14,7 @@ const isProtectedRoute = createRouteMatcher([
   "/resume(.*)",
   "/interview(.*)",
   "/api/case(.*)",
+  "/api/voice(.*)",
   "/api/resume(.*)",
   "/api/interview(.*)",
 ]);

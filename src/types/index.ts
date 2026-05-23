@@ -8,6 +8,7 @@ export interface CaseQuestion {
   description: string;
   context: string;
   key_issues: string[];
+  supports_live_mode?: boolean;
 }
 
 export interface ChatMessage {

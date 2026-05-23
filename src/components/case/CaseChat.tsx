@@ -17,6 +17,7 @@ import {
 import type { CaseLocale } from "@/types/case-locale";
 import type { CaseEvaluation, CaseQuestion, ChatMessage } from "@/types";
 import CaseEvaluationReport from "./CaseEvaluation";
+import VoiceInput from "@/components/case/voice/VoiceInput";
 
 interface CaseChatProps {
   caseQuestion: CaseQuestion;
@@ -60,7 +61,11 @@ export default function CaseChat({
   const [streamingContent, setStreamingContent] = useState("");
   const [evaluation, setEvaluation] = useState<CaseEvaluation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<"text" | "voice">("text");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const inputDisabled = isLoading || !!evaluation || sessionLoading;
 
   const ui =
     locale === "zh"
@@ -484,6 +489,7 @@ export default function CaseChat({
         </div>
 
         {error && <p className="px-4 text-sm text-rose-400">{error}</p>}
+        {voiceError && <p className="px-4 text-sm text-rose-400">{voiceError}</p>}
 
         {evaluation && (
           <div className="min-w-0 shrink-0 overflow-x-hidden border-t border-slate-800 p-4">
@@ -491,29 +497,77 @@ export default function CaseChat({
           </div>
         )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage(input);
-          }}
-          className="flex gap-2 border-t border-slate-800 p-4"
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading || !!evaluation}
-            placeholder={inputPlaceholder}
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim() || !!evaluation}
-            className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Send
-          </button>
-        </form>
+        <div className="border-t border-slate-800">
+          <div className="flex gap-2 px-4 pt-3">
+            <button
+              type="button"
+              disabled={inputDisabled}
+              onClick={() => {
+                setInputMode("text");
+                setVoiceError(null);
+              }}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                inputMode === "text"
+                  ? "bg-sky-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {locale === "zh" ? "⌨️ 文字" : "⌨️ Text"}
+            </button>
+            <button
+              type="button"
+              disabled={inputDisabled}
+              onClick={() => {
+                setInputMode("voice");
+                setVoiceError(null);
+              }}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                inputMode === "voice"
+                  ? "bg-sky-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {locale === "zh" ? "🎤 语音" : "🎤 Voice"}
+            </button>
+          </div>
+
+          {inputMode === "text" ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage(input);
+              }}
+              className="flex gap-2 p-4 pt-2"
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={inputDisabled}
+                placeholder={inputPlaceholder}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={inputDisabled || !input.trim()}
+                className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {locale === "zh" ? "发送" : "Send"}
+              </button>
+            </form>
+          ) : (
+            <VoiceInput
+              language={locale}
+              disabled={inputDisabled}
+              onTranscribed={(text) => {
+                setInput(text);
+                setInputMode("text");
+                setVoiceError(null);
+              }}
+              onError={(msg) => setVoiceError(msg)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
