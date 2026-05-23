@@ -354,69 +354,93 @@ export default function LiveModeChat({
     return fullContent;
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || isLoading || !sessionId || phase !== "interview") return;
-    if (isSilenceDelay) return;
+  const sendMessage = useCallback(
+    async (rawText: string) => {
+      const text = rawText.trim();
+      if (!text || isLoading || !sessionId || phase !== "interview") return;
+      if (isSilenceDelay) return;
 
-    const nodeAtSend = currentNodeId ?? tree?.rootNode ?? "intro";
-    setNodeTurnCounts((prev) => ({
-      ...prev,
-      [nodeAtSend]: (prev[nodeAtSend] ?? 0) + 1,
-    }));
+      const nodeAtSend = currentNodeId ?? tree?.rootNode ?? "intro";
+      setNodeTurnCounts((prev) => ({
+        ...prev,
+        [nodeAtSend]: (prev[nodeAtSend] ?? 0) + 1,
+      }));
 
-    lastUserInputRef.current = text;
-    if (awaitingPostSilenceReplyRef.current) {
-      setPostSilenceReplyLengths((prev) => [...prev, text.length]);
-      awaitingPostSilenceReplyRef.current = false;
-    }
-    const userMessage: ChatMessage = { role: "user", content: text };
-    const history = [...messages, userMessage];
-    setMessages(history);
-    setInput("");
-    typingStartedRef.current = null;
-    setIsLoading(true);
-    setStreamingContent("");
-    setError(null);
-    setActiveChartFocus(false);
-
-    const applySilence = shouldApplySilence();
-
-    try {
-      if (applySilence) {
-        setIsSilenceDelay(true);
+      lastUserInputRef.current = text;
+      if (awaitingPostSilenceReplyRef.current) {
+        setPostSilenceReplyLengths((prev) => [...prev, text.length]);
+        awaitingPostSilenceReplyRef.current = false;
       }
+      const userMessage: ChatMessage = { role: "user", content: text };
+      const history = [...messages, userMessage];
+      const messagesBeforeSend = messages;
+      setMessages(history);
+      setInput("");
+      setVoiceError(null);
+      typingStartedRef.current = null;
+      setIsLoading(true);
+      setStreamingContent("");
+      setError(null);
+      setActiveChartFocus(false);
 
-      const fullContent = await streamChat(text, messages);
-      const { displayContent, nextNodeId } = parseNodeMarker(fullContent);
-      const contentToShow = displayContent || stripNodeMarkersFromStream(fullContent);
+      const applySilence = shouldApplySilence();
 
-      if (nextNodeId) {
-        setCurrentNodeId(nextNodeId);
-        setVisitedNodes((prev) =>
-          prev.includes(nextNodeId) ? prev : [...prev, nextNodeId]
-        );
-        if (nextNodeId === "end") {
-          setPhase("summary");
-          if (sessionId) {
-            void fetch(apiUrl("/api/case/session"), {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ sessionId, status: "completed" }),
-            });
+      try {
+        if (applySilence) {
+          setIsSilenceDelay(true);
+        }
+
+        const fullContent = await streamChat(text, messagesBeforeSend);
+        const { displayContent, nextNodeId } = parseNodeMarker(fullContent);
+        const contentToShow =
+          displayContent || stripNodeMarkersFromStream(fullContent);
+
+        if (nextNodeId) {
+          setCurrentNodeId(nextNodeId);
+          setVisitedNodes((prev) =>
+            prev.includes(nextNodeId) ? prev : [...prev, nextNodeId]
+          );
+          if (nextNodeId === "end") {
+            setPhase("summary");
+            if (sessionId) {
+              void fetch(apiUrl("/api/case/session"), {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId, status: "completed" }),
+              });
+            }
           }
         }
-      }
 
-      setStreamingContent("");
-      deliverAssistantMessage(contentToShow, applySilence && phase === "interview");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Send failed");
-      setMessages(messages);
-      setIsSilenceDelay(false);
-    } finally {
-      setIsLoading(false);
-    }
+        setStreamingContent("");
+        deliverAssistantMessage(
+          contentToShow,
+          applySilence && phase === "interview"
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Send failed");
+        setMessages(messagesBeforeSend);
+        setIsSilenceDelay(false);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      currentNodeId,
+      deliverAssistantMessage,
+      isLoading,
+      isSilenceDelay,
+      messages,
+      phase,
+      sessionId,
+      shouldApplySilence,
+      streamChat,
+      tree?.rootNode,
+    ]
+  );
+
+  const handleSend = () => {
+    void sendMessage(input);
   };
 
   const handleTimeUp = useCallback(() => {
@@ -621,9 +645,12 @@ export default function LiveModeChat({
             ) : (
               <VoiceInput
                 language={locale}
-                onTranscribed={(text) => {
+                disabled={isLoading || !sessionId || isSilenceDelay}
+                onSend={(text) => void sendMessage(text)}
+                onEdit={(text) => {
                   setInput(text);
                   setInputMode("text");
+                  setVoiceError(null);
                   focusInput();
                 }}
                 onError={setVoiceError}

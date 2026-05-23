@@ -14,7 +14,12 @@ export interface VoiceInputProps {
   language: "en" | "zh";
   mode?: VoiceInputMode;
   disabled?: boolean;
-  onTranscribed: (text: string) => void;
+  /** Fills parent input (Case Practice). Ignored if `onSend` is set. */
+  onTranscribed?: (text: string) => void;
+  /** Send transcript immediately without parent input step (Live Mode). */
+  onSend?: (text: string) => void;
+  /** Move transcript to parent input for manual edit before send. */
+  onEdit?: (text: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -50,6 +55,8 @@ export default function VoiceInput({
   mode: modeProp,
   disabled = false,
   onTranscribed,
+  onSend,
+  onEdit,
   onError,
 }: VoiceInputProps) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -364,13 +371,31 @@ export default function VoiceInput({
     else if (phase === "idle") void startRecording();
   };
 
-  const handleSend = () => {
-    const text = transcript.trim();
-    if (!text) return;
-    onTranscribed(text);
+  const resetReview = () => {
     setTranscript("");
     setPhase("idle");
     setEditing(false);
+  };
+
+  const handleConfirmSend = () => {
+    const text = transcript.trim();
+    if (!text) return;
+    if (onSend) {
+      onSend(text);
+    } else if (onTranscribed) {
+      onTranscribed(text);
+    }
+    resetReview();
+  };
+
+  const handleEditClick = () => {
+    const text = transcript.trim();
+    if (onEdit) {
+      if (text) onEdit(text);
+      resetReview();
+      return;
+    }
+    setEditing((v) => !v);
   };
 
   if (phase === "review" || phase === "transcribing") {
@@ -406,14 +431,14 @@ export default function VoiceInput({
               </button>
               <button
                 type="button"
-                onClick={() => setEditing((v) => !v)}
+                onClick={handleEditClick}
                 className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
               >
                 {copy.edit}
               </button>
               <button
                 type="button"
-                onClick={handleSend}
+                onClick={handleConfirmSend}
                 disabled={!transcript.trim()}
                 className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
               >
